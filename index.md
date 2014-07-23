@@ -5,7 +5,7 @@ tagline:
 ---
 {% include JB/setup %}
 
-I'm a software engineer currently working in distributed systems, machine learning and cloud.
+I'm a software engineer currently working in distributed systems, machine learning and cloud technologies.
  
 <jorge.marsal@gmail.com>
 
