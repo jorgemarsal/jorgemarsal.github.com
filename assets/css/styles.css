@@ -1,4 +1,4 @@
-/*   
+/*
  * Template Name: Developer - Responsive Website Template for Developers
  * Version: 1.0
  * Author: 3rd Wave Media
@@ -118,7 +118,7 @@ iframe {
   border-top: 10px solid #778492;
 }
 .header .btn {
-  margin-top: 60px;
+  margin-top: 10px;
   font-weight: bold;
 }
 .header .profile-image {
@@ -128,7 +128,7 @@ iframe {
   color: #49515a;
   font-size: 38px;
   margin-bottom: 5px;
-  margin-top: 30px;
+  margin-top: 20px;
 }
 .header .profile-content .desc {
   color: #778492;
