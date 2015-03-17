@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>An interesting bug</title>
+  <meta name="description" content="The other day I hit an interesting bug and I thought it would be fun to share it.">
+
+  <link rel="stylesheet" href="/blog/css/main.css">
+  <link rel="canonical" href="http://jorgemarsal.github.io/blog/2015/03/16/an-interesting-bug.html">
+  <link rel="alternate" type="application/rss+xml" title="Jorge Martinez" href="http://jorgemarsal.github.io/blog/feed.xml" />
+</head>
+
+
+  <body>
+
+    <header class="site-header">
+
+  <div class="wrapper">
+
+    <a class="site-title" href="/blog/">Jorge Martinez</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        
+          
+          <a class="page-link" href="/blog/about/">About</a>
+          
+        
+          
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrapper">
+        <div class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">An interesting bug</h1>
+    <p class="post-meta">Mar 16, 2015</p>
+  </header>
+
+  <article class="post-content">
+    <p>The other day I hit an interesting bug and I thought it would be fun to share it.</p>
+
+<p>The interesting part is that it only happens with some compiler versions.  E.g. when compiled with GCC 4.8.2 on Ubuntu the software hangs. When compiled with GCC 4.6.4 it doesn’t. Let’s see what’s going on:</p>
+
+<pre><code>library(distributedR)
+distributedR_start(inst=1, log=3)
+Workers registered - 1/1.
+All 1 workers are registered.
+Master address:port - 127.0.0.1:50002
+&lt;hung&gt;
+</code></pre>
+
+<p>The prompt is not coming back. If we run <code>top</code>, <code>R-executor-bin</code> is stuck using 100% of a core.</p>
+
+<h2 id="debugging">Debugging</h2>
+
+<p>Let’s see where is stuck. First we need the pid of <code>R-executor-bin</code> which in this case is <code>57725</code>:</p>
+
+<pre><code>$ gdb bin/R-executor-bin 57725
+...
+0x0000000000443e55 in dataptr (x=0x6509e60) at  /usr/local/lib/R/site-library/Rcpp/include/Rcpp/routines.h:197
+197	inline void* dataptr(SEXP x){
+(gdb) bt
+#0  0x0000000000443e55 in dataptr (x=0x6509e60) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/routines.h:197
+#1  0x000000000043aee0 in r_vector_start&lt;24&gt; (x=0x6509e60) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/internal/r_vector.h:32
+#2  update (v=&lt;synthetic pointer&gt;, this=&lt;synthetic pointer&gt;) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/vector/traits.h:40
+#3  update (this=&lt;synthetic pointer&gt;) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/vector/Vector.h:428
+#4  set__ (x=&lt;optimized out&gt;, this=&lt;synthetic pointer&gt;) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/storage/PreserveStorage.h:22
+#5  Vector (size=@0x7fffb4f70bc0: 38, this=&lt;synthetic pointer&gt;) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/vector/Vector.h:107
+#6  ReadRawArgs (R=...) at platform/executor/src/executor.cpp:474
+#7  0x0000000000436659 in main (argc=&lt;optimized out&gt;, argv=&lt;optimized out&gt;) at platform/executor/src/executor.cpp:709
+</code></pre>
+
+<p>The process is stuck in the <code>dataptr</code> function. GDB tell me is this one:</p>
+
+<p><code>Rcpp/routines.h:197</code>:</p>
+
+<pre><code>197	inline void* dataptr(SEXP x){
+198	    typedef void* (*Fun)(SEXP) ;
+199	    static Fun fun = GET_CALLABLE("dataptr") ;
+200	    return fun(x) ;
+201	}
+</code></pre>
+
+<p>The function is calling itself in an infinite loop! This code doesn’t make any sense. The function above is used to call <code>dataptr</code> at runtime.</p>
+
+<p><code>GET_CALLABLE</code> is a macro pointing to <code>R_GetCCallable</code>:</p>
+
+<pre><code>#define GET_CALLABLE(__FUN__) (Fun) R_GetCCallable( "Rcpp", __FUN__ )
+</code></pre>
+
+<p>Let’s see what’s <code>R_GetCCallable</code>. It’s defined in <code>Rdynload.h</code> in R:</p>
+
+<pre><code>/* Experimental interface for exporting and importing functions from
+one package for use from C code in a package.  The registration
+part probably ought to be integrated with the other registrations.
+The naming of these routines may be less than ideal. */
+
+void R_RegisterCCallable(const char *package, const char *name, DL_FUNC fptr);
+DL_FUNC R_GetCCallable(const char *package, const char *name);
+</code></pre>
+
+<p>The corresponding registration part is in <code>Rcpp_init.cpp:109</code>:</p>
+
+<pre><code>RCPP_REGISTER(dataptr)
+#define RCPP_REGISTER(__FUN__) R_RegisterCCallable( "Rcpp", #__FUN__ , (DL_FUNC)__FUN__ );
+</code></pre>
+
+<p>But wait. That registration is not pointing to <code>dataptr</code> in <code>Rcpp/routines.h:197</code>. It’s pointing to another <code>dataptr</code> in <code>Rcpp/src/barrier.cpp:71</code>:</p>
+
+<pre><code>// [[Rcpp::register]]
+void* dataptr(SEXP x){
+    return DATAPTR(x);
+}
+</code></pre>
+
+<p>That’s bad. There are 2 functions with the same name and we’re registering one but getting the other one at runtime! And to add insult to the injury the latter is calling itself in an infinite loop. But there are 2 weird things here:</p>
+
+<ol>
+  <li>This only fails in some compiler versions!</li>
+  <li>The process is hung but is should segfault. If we keep recursing indefinitely at some time we’ll run out of stack space and the process will be killed.</li>
+</ol>
+
+<p>Let’s try to find out the reason for #1. Let’s compile with both GCC 4.6.4 and GCC 4.8.2 and see the differences in the symbol tables:</p>
+
+<pre><code>$ nm --dynamic R-executor-bin-4.8 |grep dataptr
+0000000000443e50 W _Z7dataptrP7SEXPREC
+00000000006c6060 u _ZGVZ7dataptrP7SEXPRECE3fun
+00000000006c5fe8 u _ZZ7dataptrP7SEXPRECE3fun
+
+$ nm --dynamic  R-executor-bin-4.6 |grep dataptr
+00000000006cafa0 u _ZGVZ7dataptrP7SEXPRECE3fun
+00000000006cafa8 u _ZZ7dataptrP7SEXPRECE3fun
+</code></pre>
+
+<p>Aha! GCC 4.8 has removed one of the <code>dataptr</code> definitions (the wrong one) so we’re getting what we expect at runtime. Unfortunately GCC 4.6 has not.</p>
+
+<h2 id="reproducing-the-hang-with-a-small-program">Reproducing the hang with a small program</h2>
+
+<p>Let’s try to reproduce it with a small example:</p>
+
+<pre><code>#include &lt;Rcpp.h&gt;
+#include &lt;RInside.h&gt;
+#include &lt;iostream&gt;
+
+int main() {
+    RInside R(0, 0);
+    int size = 38;
+    Rcpp::RawVector raw(size);
+    std::cout &lt;&lt; "done" &lt;&lt; std::endl;
+    return 0;
+}
+
+$ g++-4.6 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O0 -g  -o rcpphang-4.6 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+$ g++-4.8 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O0 -g  -o rcpphang-4.8 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+</code></pre>
+
+<p>Let’s run it:</p>
+
+<pre><code>$ ./rcpphang-4.8
+done
+$ ./rcpphang-4.6
+done
+</code></pre>
+
+<p>Wait, what? This is working! No hang. Let’s take a look at the symbol tables:</p>
+
+<pre><code>$ nm --dynamic rcpphang-4.6 |grep dataptr
+&lt;no output&gt;
+
+$ nm --dynamic rcpphang-4.8 |grep dataptr
+&lt;no output&gt;
+</code></pre>
+
+<p>Ok, that’s why it’s working. <code>dataptr</code> is not in the dynamic symbol tables. Looking at the original SW (that hung) I see we compile with <code>-rdynamic</code>:</p>
+
+<p><strong>-rdynamic</strong>: Pass the flag -export-dynamic to the ELF linker, on targets that support it. This instructs the linker to add all symbols, not only used ones, to the dynamic symbol table. This option is needed for some uses of dlopen or to allow obtaining backtraces from within a program.</p>
+
+<p>Let’s compile with <code>-rdynamic</code>:</p>
+
+<pre><code>$ g++-4.6 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O0 -g -rdynamic -o rcpphang-4.6 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+$ g++-4.8 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O0 -g  -o rcpphang-4.8 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+</code></pre>
+
+<p>The symbols are there now:</p>
+
+<pre><code>$ nm --dynamic rcpphang-4.6-rdyn-noopt|grep dataptr
+00000000004039f8 W _Z7dataptrP7SEXPREC
+0000000000606668 u _ZGVZ7dataptrP7SEXPRECE3fun
+0000000000606670 u _ZZ7dataptrP7SEXPRECE3fun
+
+$ nm --dynamic rcpphang-4.8-rdyn-noopt|grep dataptr
+0000000000403a08 W _Z7dataptrP7SEXPREC
+0000000000606648 u _ZGVZ7dataptrP7SEXPRECE3fun
+0000000000606650 u _ZZ7dataptrP7SEXPRECE3fun
+
+$ ./rcpphang-4.8
+&lt;segfault&gt;
+
+$ ./rcpphang-4.6
+&lt;segfault&gt;
+</code></pre>
+
+<p>Ok, now both have the symbol and therefore both segfault! The other difference is that we’re compiling the original SW with <code>-O2</code>:</p>
+
+<pre><code>$ g++-4.6 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O2 -g -rdynamic -o rcpphang-4.6 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+$ g++-4.8 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O2 -g  -o rcpphang-4.8 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+
+
+$ nm --dynamic rcpphang-4.8|grep dataptr
+00000000006046a8 u _ZGVZ7dataptrP7SEXPRECE3fun
+00000000006046a0 u _ZZ7dataptrP7SEXPRECE3fun
+$ nm --dynamic rcpphang-4.6|grep dataptr
+0000000000402b50 W _Z7dataptrP7SEXPREC
+00000000006046b8 u _ZGVZ7dataptrP7SEXPRECE3fun
+00000000006046c0 u _ZZ7dataptrP7SEXPRECE3fun
+</code></pre>
+
+<p>Now we have the same behavior as with the original SW! GCC 4.8 has removed the symbol while 4.6 hasn’t. That’s why 4.8 works and 4.6 hangs:</p>
+
+<pre><code>$ ./rcpphang-4.8
+done
+
+$ ./rcpphang-4.6
+&lt;hung&gt;
+</code></pre>
+
+<p>Now regarding weirdness #2, the explanation for the hang instead of the segfault is probably that the compiler is doing <a href="http://c2.com/cgi/wiki?TailCallOptimization">tail call optimization</a>.</p>
+
+<h2 id="fixing-the-problem">Fixing the problem</h2>
+
+<p>One way to fix this issue is to make sure the conflicting function is not exported in the shared library. We can achieve that adding the following attribute:</p>
+
+<pre><code>inline __attribute__ ((visibility ("hidden"))) void* dataptr(SEXP x){
+</code></pre>
+
+<p>In the end we reported the bug to the <code>Rcpp</code> author and he applied the fix in <code>Rcpp 0.11.5</code>.</p>
+
+<p>That was fun :)</p>
+
+  </article>
+
+</div>
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Jorge Martinez</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col  footer-col-1">
+        <ul class="contact-list">
+          <li>Jorge Martinez</li>
+          <li><a href="mailto:jorge.marsal@gmail.com">jorge.marsal@gmail.com</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/jorgemarsal">
+              <span class="icon  icon--github">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/>
+                </svg>
+              </span>
+
+              <span class="username">jorgemarsal</span>
+            </a>
+          </li>
+          
+
+          
+          <li>
+            <a href="https://twitter.com/jorgemarsal">
+              <span class="icon  icon--twitter">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                  c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"/>
+                </svg>
+              </span>
+
+              <span class="username">jorgemarsal</span>
+            </a>
+          </li>
+          
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-3">
+        <p class="text"></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>
