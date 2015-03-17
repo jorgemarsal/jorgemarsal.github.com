@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>Tracking memory usage in Linux</title>
-  <meta name="description" content="">
+  <meta name="description" content="When working with big data optimizing the memory footprint is important.">
 
   <link rel="stylesheet" href="/blog/css/main.css">
   <link rel="canonical" href="http://jorgemarsal.github.io/blog/2015/03/16/tracking-memory-usage-in-linux.html">
@@ -62,7 +62,55 @@
   </header>
 
   <article class="post-content">
-    
+    <p>When working with big data optimizing the memory footprint is important.</p>
+
+<p>In this example we’re serializing a data frame with 50 million elements using R’s native <code>serialize</code> function:</p>
+
+<pre><code>df &lt;- data.frame(runif(50e6,1,10))
+ser &lt;- serialize(df,NULL)
+</code></pre>
+
+<p>Each element is a double that takes 8 bytes. If we do the math the data frame should be 400MB (50M elements, 8byte each). The serialized version should be around 400MB too. However if we run that code and check the memory usage we see the following:</p>
+
+<pre><code>$ cat /proc/15155/status |grep Vm
+...
+VmHWM:	 1207792 kB
+VmRSS:	  817272 kB
+</code></pre>
+
+<p><code>VmRSS</code> is the resident memory and in this case it’s around 800MB as we’d expect. However the peak memory usage (<code>VmHWM</code>) is 1.2GB. Let’s fire up <code>GDB</code> and see what’s going on. The relevant R code is:</p>
+
+<pre><code>InitMemOutPStream(&amp;out, &amp;mbs, type, version, hook, fun);
+R_Serialize(object, &amp;out);
+val =  CloseMemOutPStream(&amp;out);
+...
+return val;
+</code></pre>
+
+<p>If we set a breakpoint right after <code>R_serialize</code> we see that the memory usage is around 800MB, as we’d expect:</p>
+
+<pre><code>VmRSS:	  816664 kB
+</code></pre>
+
+<p>However is we step into <code>CloseMemOutPStream</code> we see this:</p>
+
+<pre><code>PROTECT(val = allocVector(RAWSXP, mb-&gt;count));
+memcpy(RAW(val), mb-&gt;buf, mb-&gt;count);
+free_mem_buffer(mb);
+</code></pre>
+
+<p>The code is allocating a whole new buffer and copying the serialized object there. If we set a breakpoint just before <code>free</code>, the memory usage at that point is 1.2GB.</p>
+
+<pre><code>VmRSS:	 1207384 kB
+</code></pre>
+
+<h3 id="optimizing-the-code">Optimizing the code</h3>
+
+<p>Using R’s <code>serialize</code> we need 3x the amount of original memory (1.2GB for a 400MB) data frame, which is not acceptable.</p>
+
+<p>Ideally we’d like to avoid the last copy and just serialize the object in a final buffer.</p>
+
+<p>The other improvement would be to serialize the object in chunks. E.g. we could have a 10MB buffer and stream parts of the serialized object from that buffer. In this case the peak memory usage would be 410MB instead of 1.2GB!</p>
 
   </article>
 
