@@ -5,9 +5,121 @@
     <description></description>
     <link>http://jorgemarsal.github.io/blog/</link>
     <atom:link href="http://jorgemarsal.github.io/blog/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 16 Mar 2015 18:21:27 -0700</pubDate>
-    <lastBuildDate>Mon, 16 Mar 2015 18:21:27 -0700</lastBuildDate>
+    <pubDate>Sun, 17 May 2015 20:31:46 -0700</pubDate>
+    <lastBuildDate>Sun, 17 May 2015 20:31:46 -0700</lastBuildDate>
     <generator>Jekyll v2.5.3</generator>
+    
+      <item>
+        <title>Design of a simple distributed application</title>
+        <description>&lt;h3 id=&quot;introduction&quot;&gt;Introduction&lt;/h3&gt;
+&lt;p&gt;Today I’m going to explain how to design a simple distributed application. The goal is to read a really big file into memory. Since the file doesn’t fit in a single machine’s memory we need to design a system to split the file across different machines. A possible architecture comprises a &lt;code&gt;master&lt;/code&gt; that breaks the file into smaller chunks and &lt;code&gt;N workers&lt;/code&gt; that process those chunks.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/usecase.png&quot; alt=&quot;Use case&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The master should implement the following:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;A way to split the work across workers. Different policies like round-robin or sending to the worker with less requests in flight are possible.&lt;/li&gt;
+  &lt;li&gt;A way of registering workers.&lt;/li&gt;
+  &lt;li&gt;A way to monitor the workers, notice if they go down and send their pending splits to other workers.&lt;/li&gt;
+  &lt;li&gt;A way to timeout if there are no workers registered or the operation takes too long.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Master and workers communicate using the following &lt;code&gt;protobuf&lt;/code&gt; messages over a &lt;code&gt;zeromq&lt;/code&gt; transport:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;FETCH_SPLIT_REQUEST: master -&amp;gt; worker. Asks the worker to fetch a split.&lt;/li&gt;
+  &lt;li&gt;FETCH_SPLIT_RESPONSE: worker -&amp;gt; master. The worker communicates the result of the operation to the master.&lt;/li&gt;
+  &lt;li&gt;HEARTBEAT_REQUEST: master -&amp;gt; worker. Send to the worker to make sure it is alive.&lt;/li&gt;
+  &lt;li&gt;HEARTBEAT_RESPONSE: worker -&amp;gt; master. Send response back to the master.&lt;/li&gt;
+  &lt;li&gt;REGISTRATION: worker -&amp;gt; master. Register worker into the master.&lt;/li&gt;
+  &lt;li&gt;SHUTDOWN: master -&amp;gt; worker. Used to shut down the worker.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;The application works as follows. First the workers register with the master and at that point the master starts sending split requests to them. At a periodic interval the master sends heartbeats to check that the workers are still alive. If a worker doesn’t reply to a heartbeat the master removes the worker and re-sends the outstanding requests to other workers that are alive.
+This continues until all the splits are complete.&lt;/p&gt;
+
+&lt;h3 id=&quot;master-architecture&quot;&gt;Master architecture&lt;/h3&gt;
+&lt;p&gt;We divide the master into 2 components: &lt;code&gt;master&lt;/code&gt; and &lt;code&gt;transport&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/arch.png&quot; alt=&quot;Architecture&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;master&lt;/code&gt; is in charge of sending &lt;code&gt;Fetch Split Requests&lt;/code&gt;, sending &lt;code&gt;heartbeats&lt;/code&gt; and processing &lt;code&gt;responses&lt;/code&gt; from workers.&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;transport&lt;/code&gt; is in charge of sending and receiving the messages.&lt;/p&gt;
+
+&lt;p&gt;To make the design cleaner we run &lt;code&gt;master&lt;/code&gt; and &lt;code&gt;transport&lt;/code&gt; in different threads and communicate them using a thread-safe producer consumer queue. Using different threads makes the application more responsive. E.g. if the master is taking a long time generating requests or processing responses the transport can still send and receive messages. This is the master’s pseudocode:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;splits = splitFile(filename)
+while (splits.size() &amp;gt; 0) {
+  now = get_time();
+  if ((now - lastSplitResponseTime) &amp;gt; timeoutInterval) errorAndExit();
+  if ((now - lastheartbeatSendTime) &amp;gt; heartbeatSendInterval) sendHeartbeat();
+  if ((now - lastHeartbeatCheckTime) &amp;gt; hearbeatCheckInterval) checkHeartbeats();
+  if (requestQueue.hasFreeSlots()) sendSplit();
+  if (responseQueue.hasValidData()) processResponse();
+}
+shutdown(workers);
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Note that the queues are not blocking. This allows us to keep sending requests even if there are no responses and viceversa.&lt;/p&gt;
+
+&lt;p&gt;At a certain point in time the queues will look like this:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/queues.png&quot; alt=&quot;Queues&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This is just a very simple design. One possible problem is that the heartbeat requests/responses may be delayed if there are too many Fetch Splits requests/responses in the queue. Another option would be to have a separate queue with higher priority for heartbeats (i.e. &lt;code&gt;transport&lt;/code&gt; would always empty the heartbeat queue first).
+Another option is to have a whole separate &lt;code&gt;zeromq&lt;/code&gt; socket for heartbeats.&lt;/p&gt;
+
+&lt;h3 id=&quot;transport-architecture&quot;&gt;Transport architecture&lt;/h3&gt;
+
+&lt;p&gt;The transport layer is responsible for sending and receiving messages. As in the master case is not blocking:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;while (1) {
+  hasResponses = poll_for_responses();
+  if (hasResponses) responseQueue.add(response);
+  if (requestqueue.hasValiData()) sendToWorker(data);
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&quot;worker-architecture&quot;&gt;Worker architecture&lt;/h3&gt;
+&lt;p&gt;The worker is very simple. It receives requests, does the work and sends a response in a closed loop.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;while (1) {
+  req = block_for_request();
+  if(req == shutdown) break;
+  rsp = doWork(rep);
+  sendToMaster(rsp);
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The complete code is on &lt;a href=&quot;https://github.com/jorgemarsal/distributor&quot;&gt;Github&lt;/a&gt; in case you want to take a closer look ;).&lt;/p&gt;
+
+&lt;h3 id=&quot;conclusion&quot;&gt;Conclusion&lt;/h3&gt;
+&lt;p&gt;When you have a big problem scaling out across a cluster of commodity machines can be a good option.&lt;/p&gt;
+
+&lt;p&gt;In big clusters machines fail so we need a way to check for failures and react to them.&lt;/p&gt;
+
+&lt;p&gt;In this example the master is not fault tolerant. We could implement a fault tolerant system using something like  &lt;a href=&quot;https://github.com/logcabin/logcabin&quot;&gt;Logcabin&lt;/a&gt; or &lt;a href=&quot;https://zookeeper.apache.org/&quot;&gt;Zookeeper&lt;/a&gt;.&lt;/p&gt;
+</description>
+        <pubDate>Sun, 17 May 2015 00:00:00 -0700</pubDate>
+        <link>http://jorgemarsal.github.io/blog/2015/05/17/design-of-a-simple-distributed-application.html</link>
+        <guid isPermaLink="true">http://jorgemarsal.github.io/blog/2015/05/17/design-of-a-simple-distributed-application.html</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>Understanding generators in Python</title>
+        <description>&lt;p&gt;&lt;a href=&quot;http://linuxgazette.net/100/pramode.html&quot;&gt;generators&lt;/a&gt;
+&lt;a href=&quot;https://wiki.python.org/moin/Generators&quot;&gt;other&lt;/a&gt;&lt;/p&gt;
+</description>
+        <pubDate>Mon, 16 Mar 2015 00:00:00 -0700</pubDate>
+        <link>http://jorgemarsal.github.io/blog/2015/03/16/understanding-generators-in-python.html</link>
+        <guid isPermaLink="true">http://jorgemarsal.github.io/blog/2015/03/16/understanding-generators-in-python.html</guid>
+        
+        
+      </item>
     
       <item>
         <title>Tracking memory usage in Linux</title>
