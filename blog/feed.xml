@@ -5,9 +5,106 @@
     <description></description>
     <link>http://jorgemarsal.github.io/blog/</link>
     <atom:link href="http://jorgemarsal.github.io/blog/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sun, 17 May 2015 20:55:15 -0700</pubDate>
-    <lastBuildDate>Sun, 17 May 2015 20:55:15 -0700</lastBuildDate>
+    <pubDate>Mon, 26 Oct 2015 11:31:00 -0700</pubDate>
+    <lastBuildDate>Mon, 26 Oct 2015 11:31:00 -0700</lastBuildDate>
     <generator>Jekyll v2.5.3</generator>
+    
+      <item>
+        <title>Introducing hdfsconnector for R</title>
+        <description>&lt;h3 id=&quot;introduction&quot;&gt;Introduction&lt;/h3&gt;
+&lt;p&gt;Today we’re excited to introduce a new &lt;a href=&quot;https://github.com/vertica/r-dataconnector&quot;&gt;connector&lt;/a&gt; for Distributed R that enables R users to read CSV and ORC files from HDFS. One of its main features is the ability to parallelize file loads across multiple machines, drastically improving performance. This post gives an overview of how the connector was designed.&lt;/p&gt;
+
+&lt;h3 id=&quot;parallelizing-file-load&quot;&gt;Parallelizing file load&lt;/h3&gt;
+&lt;p&gt;To reduce the time it takes to load a big file the connector splits the loading across different machines in the cluster.&lt;/p&gt;
+
+&lt;p&gt;To understand how this works let’s walk through an example. Say we have a 4GB CSV file (test4GB.csv) and a single machine with 4 executors (4 cores). The connector creates as many partitions as executors. In this case each core will load 1GB of the CSV file. When working with ORC files we don’t have that much flexibility because the level of parallelism is already defined (parallelism == number of stripes in the file). In the ORC case we’ll assign different stripes to different executors.&lt;/p&gt;
+
+&lt;p&gt;Once we’ve split the file into multiple chunks we assign each chunk to the best executor. For files stored in HDFS we try to minimize data movement in the cluster. This means we’ll assign the chunk to the executor that has the highest number of HDFS blocks locally. In this case executor 1 has the highest number of blocks corresponding to chunk 1 (red), executor 2 has the highest number of blocks for chunk 2 and so on.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/hdfsconnector/scheduling.png&quot; alt=&quot;Scheduling&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;After creating the scheduling map the master sends a message to the executors indicating which chunks should be loaded on which executor. In this case the master sends 1 message to each executor:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;To executor 1: load test4GB.csv, range: [0,   1GB), schema …&lt;/li&gt;
+  &lt;li&gt;To executor 2: load test4GB.csv, range: [1GB, 2GB), schema …&lt;/li&gt;
+  &lt;li&gt;To executor 3: load test4GB.csv, range: [2GB, 3GB), schema …&lt;/li&gt;
+  &lt;li&gt;To executor 4: load test4GB.csv, range: [3GB, 4GB), schema …&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;loading-individual-chunks-on-the-executors&quot;&gt;Loading individual chunks on the executors&lt;/h3&gt;
+
+&lt;p&gt;Each executor implements a loading stack made of 4 layers (Assembler, Record Parser, Split Producer and Block Reader). To understand what each layer does it’s useful to start from the bottom. The file is just an array of bytes. We extract splits from the byte array (e.g. lines in CSV). Then we extract individual records from that split (fields in that line). Finally we assemble a final object out of individual records (e.g. an R dataframe).&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/hdfsconnector/loading_stack.png&quot; alt=&quot;Loading stack&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;In the next paragraphs we give more details about how the different layers work:&lt;/p&gt;
+
+&lt;h4 id=&quot;block-reader&quot;&gt;Block reader&lt;/h4&gt;
+&lt;p&gt;Reads a stream of bytes from storage. We have 2 flavors (&lt;code&gt;LocalBlockReader&lt;/code&gt; and &lt;code&gt;HdfsBlockReader&lt;/code&gt;).&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;LocalBlockReader&lt;/code&gt; reads from the local FS while &lt;code&gt;HdfsBlockReader&lt;/code&gt; reads from HDFS. We’re using the WebHDFS interface but we may decide to switch to the native interface in the future if HTTP is not fast enough.&lt;/p&gt;
+
+&lt;p&gt;To get the best performance we have an I/O thread that pre-fetches blocks while another thread parses the previous block. The idea is to overlap I/O with compute for improved performance.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/hdfsconnector/pipeline.png&quot; alt=&quot;Pipeline&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;split-producer&quot;&gt;Split producer&lt;/h4&gt;
+&lt;p&gt;Assembles splits (lines in CSV), stripes in ORC, etc. For that it might need to read one or more blocks.
+We have 2 flavors &lt;code&gt;DelimiterSplitProducer&lt;/code&gt; and &lt;code&gt;OffsetSplitProducer&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;In CSV lines are usually determined by a newline character (\n). In this case we use the &lt;code&gt;DelimiterSplitProducer&lt;/code&gt; to extract the lines. This is quite slow as we have to look at every byte to detect newline characters. Other formats (such as ORC) include the split boundaries in the metadata and we can extract the splits directly using the &lt;code&gt;OffsetSplitProducer&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;An additional complication for CSV files is that the offset from which we start reading may not correspond to the beginning of the line (actually this is the normal case). To handle this we have to backtrack one character and then skip that incomplete line. The discarded line will be processed by the executor that’s working on the previous chunk.&lt;/p&gt;
+
+&lt;p&gt;To understand this better let’s use an example. Suppose executor 1 is assigned range [0, 6] and executor 2  range [6,12]. Lines correspond to ranges [0,4),[4,8) and [8,12). Executor 1 will process both lines 1 and 2. Even though the range finishes at offset 6 it will continue until the full 2nd line is consumed. Executor 2 in turn will discard the incomplete line and only process line 3.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/hdfsconnector/csv_lines.png&quot; alt=&quot;CSV line splitting&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;record-parser&quot;&gt;Record parser&lt;/h4&gt;
+&lt;p&gt;Breaks a split into individual records.
+The record parser is format dependent. In the CSV case we use a separator (usually a comma) to separate the records.
+ORC is a columnar format so all the records in the same column are stored together in a highly optimized way (encoded and compressed).&lt;/p&gt;
+
+&lt;p&gt;To understand the importance of the format let’s see how an int column is encoded both in CSV and ORC.
+Let’s say the data is 1000,1001,1002 …
+In CSV each record takes 4 bytes or 32 bits (let’s assume the numbers fit between 0 and 9999). In ORC we’d only need 14 bits to encode each number.
+On top of that we can add smart encodings. For example in this case instead of storing the numbers we can store the delta between each consecutive number. That would be [1,1,1,1 …]. This can be run-length encoded to [num-elements,1]. Finally we can apply compression to reduce the final size even more.
+ORC supports many different encodings (e.g. dictionary encoding for string type) and different compression types.&lt;/p&gt;
+
+&lt;p&gt;Another advantage of ORC vs CSV is that it supports complex types (struct, map, list …)&lt;/p&gt;
+
+&lt;h4 id=&quot;assembler&quot;&gt;Assembler&lt;/h4&gt;
+&lt;p&gt;The final layer assembles a number of records into a final object (e.g. an R dataframe).&lt;/p&gt;
+
+&lt;p&gt;The mapping in CSV is straightforward. In the ORC case is more complex as it supports more types and they can be arbitrarily nested. The mapping we use is:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;ORC Struct -&amp;gt; R dataframe&lt;/li&gt;
+  &lt;li&gt;ORC List -&amp;gt; R list&lt;/li&gt;
+  &lt;li&gt;ORC Map -&amp;gt; R dataframe with 2 columns (key, value).&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;performance&quot;&gt;Performance&lt;/h3&gt;
+&lt;p&gt;Performance is highly dependent on the HW configurations (numbers or cores, performance per core, bisection bandwidth between the HDFS nodes and the nodes loading the files, etc.).&lt;/p&gt;
+
+&lt;p&gt;In the graph we present the results of loading a 64MB CSV file with a single machine (4 cores). The time decreases linearly as we add cores.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/hdfsconnector/perf.png&quot; alt=&quot;Performance&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;conclusion&quot;&gt;Conclusion&lt;/h3&gt;
+&lt;p&gt;This new connector allows R users to read files from HDFS. It can parallelize file loads across cores and machines which results in great performance.&lt;/p&gt;
+
+&lt;p&gt;We offer this functionality as part of &lt;a href=&quot;https://github.com/vertica/distributedr&quot;&gt;Distributed R&lt;/a&gt; (supporting distributed operation) and also as an individual package named &lt;a href=&quot;https://github.com/vertica/r-dataconnector&quot;&gt;dataconnector&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;The connector is open-source and we encourage feedback and contributions.&lt;/p&gt;
+</description>
+        <pubDate>Sat, 24 Oct 2015 00:00:00 -0700</pubDate>
+        <link>http://jorgemarsal.github.io/blog/2015/10/24/introducing-hdfsconnector-for-r.html</link>
+        <guid isPermaLink="true">http://jorgemarsal.github.io/blog/2015/10/24/introducing-hdfsconnector-for-r.html</guid>
+        
+        
+      </item>
     
       <item>
         <title>Design of a simple distributed application</title>
@@ -125,7 +222,6 @@ Another option is to have a whole separate &lt;code&gt;zeromq&lt;/code&gt; socke
         
       </item>
     
-      
       <item>
         <title>Tracking memory usage in Linux</title>
         <description>&lt;p&gt;When working with big data optimizing the memory footprint is important.&lt;/p&gt;
