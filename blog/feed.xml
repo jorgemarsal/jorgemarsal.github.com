@@ -125,18 +125,7 @@ Another option is to have a whole separate &lt;code&gt;zeromq&lt;/code&gt; socke
         
       </item>
     
-      <item>
-        <title>Understanding generators in Python</title>
-        <description>&lt;p&gt;&lt;a href=&quot;http://linuxgazette.net/100/pramode.html&quot;&gt;generators&lt;/a&gt;
-&lt;a href=&quot;https://wiki.python.org/moin/Generators&quot;&gt;other&lt;/a&gt;&lt;/p&gt;
-</description>
-        <pubDate>Mon, 16 Mar 2015 00:00:00 -0700</pubDate>
-        <link>http://jorgemarsal.github.io/blog/2015/03/16/understanding-generators-in-python.html</link>
-        <guid isPermaLink="true">http://jorgemarsal.github.io/blog/2015/03/16/understanding-generators-in-python.html</guid>
-        
-        
-      </item>
-    
+      
       <item>
         <title>Tracking memory usage in Linux</title>
         <description>&lt;p&gt;When working with big data optimizing the memory footprint is important.&lt;/p&gt;
