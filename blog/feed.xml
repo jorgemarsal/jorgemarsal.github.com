@@ -5,8 +5,8 @@
     <description></description>
     <link>http://jorgemarsal.github.io/blog/</link>
     <atom:link href="http://jorgemarsal.github.io/blog/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Wed, 06 Jan 2016 04:00:24 -0800</pubDate>
-    <lastBuildDate>Wed, 06 Jan 2016 04:00:24 -0800</lastBuildDate>
+    <pubDate>Thu, 07 Jan 2016 03:32:51 -0800</pubDate>
+    <lastBuildDate>Thu, 07 Jan 2016 03:32:51 -0800</lastBuildDate>
     <generator>Jekyll v2.5.3</generator>
     
       <item>
@@ -188,6 +188,256 @@ One of the main abstraction in Kubernetes is the Replication Controller. You can
         <pubDate>Wed, 06 Jan 2016 00:00:00 -0800</pubDate>
         <link>http://jorgemarsal.github.io/blog/2016/01/06/100000-foot-view-of-a-modern-web-service.html</link>
         <guid isPermaLink="true">http://jorgemarsal.github.io/blog/2016/01/06/100000-foot-view-of-a-modern-web-service.html</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>Creating your first service using Kubernetes on AWS</title>
+        <description>&lt;p&gt;Lately we’ve playing with Kubernetes (or K8s) at work. Kubernetes is an open source orchestration system for Docker containers. It comes with awesome features like fault tolerance, auto-scaling and others.&lt;/p&gt;
+
+&lt;p&gt;In this post we give an overview on how to install Kubernetes on AWS and how to run your first service.&lt;/p&gt;
+
+&lt;h3 id=&quot;installing-kubernetes-on-aws&quot;&gt;Installing Kubernetes on AWS&lt;/h3&gt;
+
+&lt;p&gt;The first step is to create a new instance. Once the instance has booted up, log in and enter your AWS credentials (the K8s installer needs the credentials to create objects in AWS):&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ mkdir -p ~/.aws/
+$ vi ~/.aws/credentials
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let’s install Kubernetes next. There are a few of &lt;a href=&quot;https://github.com/kubernetes/kubernetes/blob/master/cluster/aws/options.md&quot;&gt;options&lt;/a&gt; that can be tweaked:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ export KUBERNETES_PROVIDER=aws
+$ export MASTER_SIZE=t2.large
+$ export NODE_SIZE=t2.large
+$ wget -q -O - https://get.K8s.io | bash
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;After this command finishes K8s is up and running! By default the scripts creates a cluster with 1 master node and 4 minion nodes. It also creates 2 security groups that allow SSH access to master and minions and HTTP access to the master.&lt;/p&gt;
+
+&lt;p&gt;K8s provides a REST API to interface with the cluster. The information to access that API including the URL, username, password and tokens can be found in the config file:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ cat /home/ec2-user/.kube/config
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;In our case the API lives in the following URL:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ curl https://52.35.142.134
+
+{
+ &quot;paths&quot;: [
+   &quot;/api&quot;,
+   &quot;/api/v1&quot;,
+   ...
+   &quot;/ui/&quot;,
+   &quot;/version&quot;
+ ]
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Instead of using the REST API directly we’re going to use a CLI tool called &lt;code&gt;kubelet&lt;/code&gt;. Let’s add the paths and export a few environment variables in ~/.bashrc:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ export PATH=$PATH:/home/ec2-user/kubernetes/cluster/:$HOME/kubernetes/platforms/linux/amd64/
+$ export KUBERNETES_PROVIDER=aws
+$ source ~/.bashrc
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;K8s runs a few services by default including DNS, logging, monitoring and others:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ kubectl cluster-info
+Kubernetes master is running at https://52.35.87.147
+Elasticsearch is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/elasticsearch-logging
+Heapster is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/heapster
+Kibana is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/kibana-logging
+KubeDNS is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/kube-dns
+KubeUI is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/kube-ui
+Grafana is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/monitoring-grafana
+InfluxDB is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/monitoring-influxdb
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&quot;logging&quot;&gt;Logging&lt;/h4&gt;
+&lt;p&gt;Kubernetes’ default option for logging is to run a &lt;code&gt;fluentd&lt;/code&gt; agent on each node. These agents send the logs to &lt;code&gt;ElasticSearch&lt;/code&gt; where they’re stored and indexed. To explore the logs there’s a GUI named &lt;code&gt;Kibana&lt;/code&gt;:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/k8s-aws/kibana.jpg&quot; alt=&quot;Logging&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;monitoring&quot;&gt;Monitoring&lt;/h4&gt;
+&lt;p&gt;There’s an analogous solution for monitoring as well. Each node runs a &lt;code&gt;heapster&lt;/code&gt; agent that collects metrics. The metrics are sent to &lt;code&gt;influxdb&lt;/code&gt; (a time series database) where they can be queried using a REST API or a GUI named &lt;code&gt;Grafana&lt;/code&gt;:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/k8s-aws/grafana.jpg&quot; alt=&quot;Monitoring&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;kube-ui&quot;&gt;Kube-ui&lt;/h3&gt;
+&lt;p&gt;Kubernetes comes with a graphical dashboard with information of the nodes that form the cluster.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/blog/assets/k8s-aws/kube-ui.jpg&quot; alt=&quot;Kube-UI&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;And of course there’s the possibility to SSH to the nodes directly:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ ssh -i ~/.ssh/kube_aws_rsa ubuntu@52.35.178.251
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&quot;running-your-own-service-on-k8s&quot;&gt;Running your own service on K8s&lt;/h3&gt;
+&lt;p&gt;To run your service on K8s the first step is to create a Docker image out of it.
+In this example we’re going to Dockerize the &lt;code&gt;hello-node&lt;/code&gt; service. This is just a simple web server that outputs “Hello world” when accessed. To create a Docker image we just add a simple Dockerfile to the project:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;FROM node
+ADD index.js
+CMD node index.js
+EXPOSE 8000
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Then let’s make sure Docker is installed and running:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ sudo yum -y install docker git
+$ sudo service docker start
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let’s get the code:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ git clone http://github.com/jorgemarsal/hello-node
+$ cd hello-node
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;To build the image we run &lt;code&gt;docker build&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ sudo docker build -t jorgemarsal/hello-node:0.0.1 .
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Finally we can push the image to a repository. Later on Kubernetes will fetch the image from there:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ sudo docker push jorgemarsal/hello-node:0.0.1
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&quot;kubernetes-spec-files&quot;&gt;Kubernetes spec files&lt;/h4&gt;
+
+&lt;p&gt;To run the service on K8s we need to create a &lt;code&gt;Replication Controller&lt;/code&gt; spec and a &lt;code&gt;Service&lt;/code&gt; spec. In the replication controller spec we specify the docker image, the number of replicas and the port the application is listening on:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;// rc.json
+{
+   &quot;apiVersion&quot;: &quot;v1&quot;,
+   &quot;kind&quot;: &quot;ReplicationController&quot;,
+   &quot;metadata&quot;: {
+       &quot;labels&quot;: {
+           &quot;app&quot;: &quot;hello-node&quot;,
+           &quot;version&quot;: &quot;v1&quot;
+       },
+       &quot;name&quot;: &quot;hello-node-v1&quot;,
+       &quot;namespace&quot;: &quot;&quot;
+   },
+   &quot;spec&quot;: {
+       &quot;replicas&quot;: 1,
+       &quot;selector&quot;: {
+           &quot;app&quot;: &quot;hello-node&quot;,
+           &quot;version&quot;: &quot;v1&quot;
+       },
+       &quot;template&quot;: {
+           &quot;metadata&quot;: {
+               &quot;labels&quot;: {
+                   &quot;app&quot;: &quot;hello-node&quot;,
+                   &quot;version&quot;: &quot;v1&quot;
+               }
+           },
+           &quot;spec&quot;: {
+               &quot;containers&quot;: [
+                   {
+                       &quot;image&quot;: &quot;jorgemarsal/hello-node:0.0.1&quot;,
+                       &quot;name&quot;: &quot;hello-node-v1&quot;,
+                       &quot;ports&quot;: [
+                           {
+                               &quot;containerPort&quot;: 8000,
+                               &quot;name&quot;: &quot;hello-node&quot;
+                           }
+                       ]
+                   }
+               ]
+           }
+       }
+   }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let’s create the Replication Controller:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ kubectl create -f rc.json
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;In the service spec we specify the ports and we request a load balancer for our service:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;// service.json
+{
+  &quot;kind&quot;:&quot;Service&quot;,
+  &quot;apiVersion&quot;:&quot;v1&quot;,
+  &quot;metadata&quot;:{
+     &quot;name&quot;:&quot;hello-node&quot;,
+     &quot;labels&quot;:{
+        &quot;app&quot;:&quot;hello-node&quot;,
+        &quot;version&quot;:&quot;v1&quot;
+     }
+  },
+  &quot;spec&quot;:{
+     &quot;ports&quot;: [
+         {
+             &quot;name&quot;: &quot;hello-node&quot;,
+             &quot;port&quot;: 8000,
+             &quot;targetPort&quot;: 8000
+         }
+     ],
+     &quot;selector&quot;:{
+        &quot;app&quot;:&quot;hello-node&quot;,
+        &quot;version&quot;:&quot;v1&quot;
+     },
+     &quot;type&quot;: &quot;LoadBalancer&quot;
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let’s create the service:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ kubectl create -f svc.json
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;After a few seconds the service should be up and running. We can check with:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ kubectl get pods
+$ kubectl get services
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Since we specified &lt;code&gt;type: loadbalancer&lt;/code&gt;, AWS automatically creates a ELB for us.&lt;/p&gt;
+
+&lt;p&gt;We can access the service using the ELB URL. In a real-world example probably we’d want a friendlier DNS name:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ curl http://a9abab161a37511e5810906731b2c52d-1058840568.us-west-2.elb.amazonaws.com:8000/
+hello world
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Even though the &lt;code&gt;hello-node&lt;/code&gt; service is extremely simple, we get a few nice things for free. Kubernetes is constantly polling the service and if something goes wrong the service is automatically restarted on another node. We also have the possibility to scale the number of hello-node containers up or down easily. Finally we get logging and monitoring.&lt;/p&gt;
+
+&lt;h3 id=&quot;acessing-the-k8s-api-programmatically&quot;&gt;Acessing the K8s API programmatically&lt;/h3&gt;
+&lt;p&gt;Doing things manually is fine to start getting familiar with the system, but for more serious projects you should access the K8s API programmatically. At work we mainly use Python and we’ve found a simple library named &lt;a href=&quot;https://github.com/eldarion-gondor/pykube&quot;&gt;pykube&lt;/a&gt; that’s pretty useful.&lt;/p&gt;
+
+&lt;p&gt;Pykube needs a few parameters to function. As mentioned previously we can get those parameters from Kubernetes’ configuration file.
+It’s also possible to access the API from within a running container by using the following parameters:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;URL: https://kubernetes&lt;/li&gt;
+  &lt;li&gt;user = nobody&lt;/li&gt;
+  &lt;li&gt;token present on file &lt;code&gt;/var/run/secrets/kubernetes.io/serviceaccount/token&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;CA present on file: &lt;code&gt;/var/run/secrets/kubernetes.io/serviceaccount/ca.crt&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;In this &lt;a href=&quot;https://gist.github.com/jorgemarsal/600c49a12d79429c7da1&quot;&gt;gist&lt;/a&gt; you can find some functions to help you get started.&lt;/p&gt;
+
+&lt;h3 id=&quot;other-resources&quot;&gt;Other resources&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;http://kubernetes.io&quot;&gt;Kubernetes official website&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://docker.com&quot;&gt;Docker official website&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Hope this helps you get started with your next kubernetes project on AWS!&lt;/p&gt;
+</description>
+        <pubDate>Tue, 15 Dec 2015 00:00:00 -0800</pubDate>
+        <link>http://jorgemarsal.github.io/blog/2015/12/15/creating-your-first-service-using-kubernetes-on-aws.html</link>
+        <guid isPermaLink="true">http://jorgemarsal.github.io/blog/2015/12/15/creating-your-first-service-using-kubernetes-on-aws.html</guid>
         
         
       </item>
