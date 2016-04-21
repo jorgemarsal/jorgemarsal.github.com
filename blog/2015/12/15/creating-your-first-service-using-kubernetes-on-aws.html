@@ -7,7 +7,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>Creating your first service using Kubernetes on AWS</title>
-  <meta name="description" content="Lately we&#8217;ve playing with Kubernetes (or K8s) at work. Kubernetes is an open source orchestration system for Docker containers. It comes with awesome f...">
+  <meta name="description" content="">
+  
+  <meta name="keywords" content=""/>
+  
 
   <link rel="stylesheet" href="/blog/css/main.css">
   <link rel="canonical" href="http://jorgemarsal.github.io/blog/2015/12/15/creating-your-first-service-using-kubernetes-on-aws.html">
@@ -81,28 +84,31 @@
 
 <p>The first step is to create a new instance. Once the instance has booted up, log in and enter your AWS credentials (the K8s installer needs the credentials to create objects in AWS):</p>
 
-<pre><code>$ mkdir -p ~/.aws/
+<div class="highlighter-rouge"><pre class="highlight"><code>$ mkdir -p ~/.aws/
 $ vi ~/.aws/credentials
 </code></pre>
+</div>
 
 <p>Let’s install Kubernetes next. There are a few of <a href="https://github.com/kubernetes/kubernetes/blob/master/cluster/aws/options.md">options</a> that can be tweaked:</p>
 
-<pre><code>$ export KUBERNETES_PROVIDER=aws
+<div class="highlighter-rouge"><pre class="highlight"><code>$ export KUBERNETES_PROVIDER=aws
 $ export MASTER_SIZE=t2.large
 $ export NODE_SIZE=t2.large
 $ wget -q -O - https://get.K8s.io | bash
 </code></pre>
+</div>
 
 <p>After this command finishes K8s is up and running! By default the scripts creates a cluster with 1 master node and 4 minion nodes. It also creates 2 security groups that allow SSH access to master and minions and HTTP access to the master.</p>
 
 <p>K8s provides a REST API to interface with the cluster. The information to access that API including the URL, username, password and tokens can be found in the config file:</p>
 
-<pre><code>$ cat /home/ec2-user/.kube/config
+<div class="highlighter-rouge"><pre class="highlight"><code>$ cat /home/ec2-user/.kube/config
 </code></pre>
+</div>
 
 <p>In our case the API lives in the following URL:</p>
 
-<pre><code>$ curl https://52.35.142.134
+<div class="highlighter-rouge"><pre class="highlight"><code>$ curl https://52.35.142.134
 
 {
  "paths": [
@@ -114,17 +120,19 @@ $ wget -q -O - https://get.K8s.io | bash
  ]
 }
 </code></pre>
+</div>
 
-<p>Instead of using the REST API directly we’re going to use a CLI tool called <code>kubelet</code>. Let’s add the paths and export a few environment variables in ~/.bashrc:</p>
+<p>Instead of using the REST API directly we’re going to use a CLI tool called <code class="highlighter-rouge">kubelet</code>. Let’s add the paths and export a few environment variables in ~/.bashrc:</p>
 
-<pre><code>$ export PATH=$PATH:/home/ec2-user/kubernetes/cluster/:$HOME/kubernetes/platforms/linux/amd64/
+<div class="highlighter-rouge"><pre class="highlight"><code>$ export PATH=$PATH:/home/ec2-user/kubernetes/cluster/:$HOME/kubernetes/platforms/linux/amd64/
 $ export KUBERNETES_PROVIDER=aws
 $ source ~/.bashrc
 </code></pre>
+</div>
 
 <p>K8s runs a few services by default including DNS, logging, monitoring and others:</p>
 
-<pre><code>$ kubectl cluster-info
+<div class="highlighter-rouge"><pre class="highlight"><code>$ kubectl cluster-info
 Kubernetes master is running at https://52.35.87.147
 Elasticsearch is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/elasticsearch-logging
 Heapster is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/heapster
@@ -134,14 +142,15 @@ KubeUI is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/se
 Grafana is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/monitoring-grafana
 InfluxDB is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/monitoring-influxdb
 </code></pre>
+</div>
 
 <h4 id="logging">Logging</h4>
-<p>Kubernetes’ default option for logging is to run a <code>fluentd</code> agent on each node. These agents send the logs to <code>ElasticSearch</code> where they’re stored and indexed. To explore the logs there’s a GUI named <code>Kibana</code>:</p>
+<p>Kubernetes’ default option for logging is to run a <code class="highlighter-rouge">fluentd</code> agent on each node. These agents send the logs to <code class="highlighter-rouge">ElasticSearch</code> where they’re stored and indexed. To explore the logs there’s a GUI named <code class="highlighter-rouge">Kibana</code>:</p>
 
 <p><img src="/blog/assets/k8s-aws/kibana.jpg" alt="Logging" /></p>
 
 <h4 id="monitoring">Monitoring</h4>
-<p>There’s an analogous solution for monitoring as well. Each node runs a <code>heapster</code> agent that collects metrics. The metrics are sent to <code>influxdb</code> (a time series database) where they can be queried using a REST API or a GUI named <code>Grafana</code>:</p>
+<p>There’s an analogous solution for monitoring as well. Each node runs a <code class="highlighter-rouge">heapster</code> agent that collects metrics. The metrics are sent to <code class="highlighter-rouge">influxdb</code> (a time series database) where they can be queried using a REST API or a GUI named <code class="highlighter-rouge">Grafana</code>:</p>
 
 <p><img src="/blog/assets/k8s-aws/grafana.jpg" alt="Monitoring" /></p>
 
@@ -152,46 +161,52 @@ InfluxDB is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/
 
 <p>And of course there’s the possibility to SSH to the nodes directly:</p>
 
-<pre><code>$ ssh -i ~/.ssh/kube_aws_rsa ubuntu@52.35.178.251
+<div class="highlighter-rouge"><pre class="highlight"><code>$ ssh -i ~/.ssh/kube_aws_rsa ubuntu@52.35.178.251
 </code></pre>
+</div>
 
 <h3 id="running-your-own-service-on-k8s">Running your own service on K8s</h3>
 <p>To run your service on K8s the first step is to create a Docker image out of it.
-In this example we’re going to Dockerize the <code>hello-node</code> service. This is just a simple web server that outputs “Hello world” when accessed. To create a Docker image we just add a simple Dockerfile to the project:</p>
+In this example we’re going to Dockerize the <code class="highlighter-rouge">hello-node</code> service. This is just a simple web server that outputs “Hello world” when accessed. To create a Docker image we just add a simple Dockerfile to the project:</p>
 
-<pre><code>FROM node
+<div class="highlighter-rouge"><pre class="highlight"><code>FROM node
 ADD index.js
 CMD node index.js
 EXPOSE 8000
 </code></pre>
+</div>
 
 <p>Then let’s make sure Docker is installed and running:</p>
 
-<pre><code>$ sudo yum -y install docker git
+<div class="highlighter-rouge"><pre class="highlight"><code>$ sudo yum -y install docker git
 $ sudo service docker start
 </code></pre>
+</div>
 
 <p>Let’s get the code:</p>
 
-<pre><code>$ git clone http://github.com/jorgemarsal/hello-node
+<div class="highlighter-rouge"><pre class="highlight"><code>$ git clone http://github.com/jorgemarsal/hello-node
 $ cd hello-node
 </code></pre>
+</div>
 
-<p>To build the image we run <code>docker build</code>:</p>
+<p>To build the image we run <code class="highlighter-rouge">docker build</code>:</p>
 
-<pre><code>$ sudo docker build -t jorgemarsal/hello-node:0.0.1 .
+<div class="highlighter-rouge"><pre class="highlight"><code>$ sudo docker build -t jorgemarsal/hello-node:0.0.1 .
 </code></pre>
+</div>
 
 <p>Finally we can push the image to a repository. Later on Kubernetes will fetch the image from there:</p>
 
-<pre><code>$ sudo docker push jorgemarsal/hello-node:0.0.1
+<div class="highlighter-rouge"><pre class="highlight"><code>$ sudo docker push jorgemarsal/hello-node:0.0.1
 </code></pre>
+</div>
 
 <h4 id="kubernetes-spec-files">Kubernetes spec files</h4>
 
-<p>To run the service on K8s we need to create a <code>Replication Controller</code> spec and a <code>Service</code> spec. In the replication controller spec we specify the docker image, the number of replicas and the port the application is listening on:</p>
+<p>To run the service on K8s we need to create a <code class="highlighter-rouge">Replication Controller</code> spec and a <code class="highlighter-rouge">Service</code> spec. In the replication controller spec we specify the docker image, the number of replicas and the port the application is listening on:</p>
 
-<pre><code>// rc.json
+<div class="highlighter-rouge"><pre class="highlight"><code>// rc.json
 {
    "apiVersion": "v1",
    "kind": "ReplicationController",
@@ -234,15 +249,17 @@ $ cd hello-node
    }
 }
 </code></pre>
+</div>
 
 <p>Let’s create the Replication Controller:</p>
 
-<pre><code>$ kubectl create -f rc.json
+<div class="highlighter-rouge"><pre class="highlight"><code>$ kubectl create -f rc.json
 </code></pre>
+</div>
 
 <p>In the service spec we specify the ports and we request a load balancer for our service:</p>
 
-<pre><code>// service.json
+<div class="highlighter-rouge"><pre class="highlight"><code>// service.json
 {
   "kind":"Service",
   "apiVersion":"v1",
@@ -269,27 +286,31 @@ $ cd hello-node
   }
 }
 </code></pre>
+</div>
 
 <p>Let’s create the service:</p>
 
-<pre><code>$ kubectl create -f svc.json
+<div class="highlighter-rouge"><pre class="highlight"><code>$ kubectl create -f svc.json
 </code></pre>
+</div>
 
 <p>After a few seconds the service should be up and running. We can check with:</p>
 
-<pre><code>$ kubectl get pods
+<div class="highlighter-rouge"><pre class="highlight"><code>$ kubectl get pods
 $ kubectl get services
 </code></pre>
+</div>
 
-<p>Since we specified <code>type: loadbalancer</code>, AWS automatically creates a ELB for us.</p>
+<p>Since we specified <code class="highlighter-rouge">type: loadbalancer</code>, AWS automatically creates a ELB for us.</p>
 
 <p>We can access the service using the ELB URL. In a real-world example probably we’d want a friendlier DNS name:</p>
 
-<pre><code>$ curl http://a9abab161a37511e5810906731b2c52d-1058840568.us-west-2.elb.amazonaws.com:8000/
+<div class="highlighter-rouge"><pre class="highlight"><code>$ curl http://a9abab161a37511e5810906731b2c52d-1058840568.us-west-2.elb.amazonaws.com:8000/
 hello world
 </code></pre>
+</div>
 
-<p>Even though the <code>hello-node</code> service is extremely simple, we get a few nice things for free. Kubernetes is constantly polling the service and if something goes wrong the service is automatically restarted on another node. We also have the possibility to scale the number of hello-node containers up or down easily. Finally we get logging and monitoring.</p>
+<p>Even though the <code class="highlighter-rouge">hello-node</code> service is extremely simple, we get a few nice things for free. Kubernetes is constantly polling the service and if something goes wrong the service is automatically restarted on another node. We also have the possibility to scale the number of hello-node containers up or down easily. Finally we get logging and monitoring.</p>
 
 <h3 id="acessing-the-k8s-api-programmatically">Acessing the K8s API programmatically</h3>
 <p>Doing things manually is fine to start getting familiar with the system, but for more serious projects you should access the K8s API programmatically. At work we mainly use Python and we’ve found a simple library named <a href="https://github.com/eldarion-gondor/pykube">pykube</a> that’s pretty useful.</p>
@@ -300,8 +321,8 @@ It’s also possible to access the API from within a running container by using 
 <ul>
   <li>URL: https://kubernetes</li>
   <li>user = nobody</li>
-  <li>token present on file <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code></li>
-  <li>CA present on file: <code>/var/run/secrets/kubernetes.io/serviceaccount/ca.crt</code></li>
+  <li>token present on file <code class="highlighter-rouge">/var/run/secrets/kubernetes.io/serviceaccount/token</code></li>
+  <li>CA present on file: <code class="highlighter-rouge">/var/run/secrets/kubernetes.io/serviceaccount/ca.crt</code></li>
 </ul>
 
 <p>In this <a href="https://gist.github.com/jorgemarsal/600c49a12d79429c7da1">gist</a> you can find some functions to help you get started.</p>
@@ -317,6 +338,32 @@ It’s also possible to access the API from within a running container by using 
   </article>
 
 </div>
+
+<a href="https://twitter.com/jorgemarsal" class="twitter-follow-button" data-show-count="false" data-size="large">Follow @jorgemarsal</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+<div id="disqus_thread"></div>
+<script>
+/**
+* RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+* LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables
+*/
+/*
+var disqus_config = function () {
+this.page.url = PAGE_URL; // Replace PAGE_URL with your page's canonical URL variable
+this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+};
+*/
+(function() { // DON'T EDIT BELOW THIS LINE
+var d = document, s = d.createElement('script');
+
+s.src = '//jorgemarsal.disqus.com/embed.js';
+
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
 
       </div>
     </div>

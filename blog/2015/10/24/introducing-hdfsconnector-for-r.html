@@ -7,7 +7,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>Introducing hdfsconnector for R</title>
-  <meta name="description" content="IntroductionToday we&#8217;re excited to introduce a new connector for Distributed R that enables R users to read CSV and ORC files from HDFS. One of its mai...">
+  <meta name="description" content="">
+  
+  <meta name="keywords" content=""/>
+  
 
   <link rel="stylesheet" href="/blog/css/main.css">
   <link rel="canonical" href="http://jorgemarsal.github.io/blog/2015/10/24/introducing-hdfsconnector-for-r.html">
@@ -103,9 +106,9 @@
 <p>In the next paragraphs we give more details about how the different layers work:</p>
 
 <h4 id="block-reader">Block reader</h4>
-<p>Reads a stream of bytes from storage. We have 2 flavors (<code>LocalBlockReader</code> and <code>HdfsBlockReader</code>).</p>
+<p>Reads a stream of bytes from storage. We have 2 flavors (<code class="highlighter-rouge">LocalBlockReader</code> and <code class="highlighter-rouge">HdfsBlockReader</code>).</p>
 
-<p><code>LocalBlockReader</code> reads from the local FS while <code>HdfsBlockReader</code> reads from HDFS. We’re using the WebHDFS interface but we may decide to switch to the native interface in the future if HTTP is not fast enough.</p>
+<p><code class="highlighter-rouge">LocalBlockReader</code> reads from the local FS while <code class="highlighter-rouge">HdfsBlockReader</code> reads from HDFS. We’re using the WebHDFS interface but we may decide to switch to the native interface in the future if HTTP is not fast enough.</p>
 
 <p>To get the best performance we have an I/O thread that pre-fetches blocks while another thread parses the previous block. The idea is to overlap I/O with compute for improved performance.</p>
 
@@ -113,9 +116,9 @@
 
 <h4 id="split-producer">Split producer</h4>
 <p>Assembles splits (lines in CSV), stripes in ORC, etc. For that it might need to read one or more blocks.
-We have 2 flavors <code>DelimiterSplitProducer</code> and <code>OffsetSplitProducer</code>.</p>
+We have 2 flavors <code class="highlighter-rouge">DelimiterSplitProducer</code> and <code class="highlighter-rouge">OffsetSplitProducer</code>.</p>
 
-<p>In CSV lines are usually determined by a newline character (\n). In this case we use the <code>DelimiterSplitProducer</code> to extract the lines. This is quite slow as we have to look at every byte to detect newline characters. Other formats (such as ORC) include the split boundaries in the metadata and we can extract the splits directly using the <code>OffsetSplitProducer</code>.</p>
+<p>In CSV lines are usually determined by a newline character (\n). In this case we use the <code class="highlighter-rouge">DelimiterSplitProducer</code> to extract the lines. This is quite slow as we have to look at every byte to detect newline characters. Other formats (such as ORC) include the split boundaries in the metadata and we can extract the splits directly using the <code class="highlighter-rouge">OffsetSplitProducer</code>.</p>
 
 <p>An additional complication for CSV files is that the offset from which we start reading may not correspond to the beginning of the line (actually this is the normal case). To handle this we have to backtrack one character and then skip that incomplete line. The discarded line will be processed by the executor that’s working on the previous chunk.</p>
 
@@ -164,6 +167,32 @@ ORC supports many different encodings (e.g. dictionary encoding for string type)
   </article>
 
 </div>
+
+<a href="https://twitter.com/jorgemarsal" class="twitter-follow-button" data-show-count="false" data-size="large">Follow @jorgemarsal</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+<div id="disqus_thread"></div>
+<script>
+/**
+* RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+* LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables
+*/
+/*
+var disqus_config = function () {
+this.page.url = PAGE_URL; // Replace PAGE_URL with your page's canonical URL variable
+this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+};
+*/
+(function() { // DON'T EDIT BELOW THIS LINE
+var d = document, s = d.createElement('script');
+
+s.src = '//jorgemarsal.disqus.com/embed.js';
+
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
 
       </div>
     </div>

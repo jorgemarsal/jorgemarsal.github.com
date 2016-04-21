@@ -7,7 +7,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>Modern c++ tools and techniques</title>
-  <meta name="description" content="Intro">
+  <meta name="description" content="">
+  
+  <meta name="keywords" content=""/>
+  
 
   <link rel="stylesheet" href="/blog/css/main.css">
   <link rel="canonical" href="http://jorgemarsal.github.io/blog/2015/10/25/modern-cpp-tools-and-techniques.html">
@@ -92,7 +95,7 @@
 <h3 id="design-patterns-and-techniques">Design patterns and techniques</h3>
 
 <p>The first thing to mention is to just design new stuff when you absolutely have too. See what’s available before starting your own design.
-<code>Boost</code> and generally anything coming out of Google, Facebook etc. are good options.</p>
+<code class="highlighter-rouge">Boost</code> and generally anything coming out of Google, Facebook etc. are good options.</p>
 
 <p>If you have to design something from scratch using design patterns usually makes your software cleaner and more extensible.
 In software engineering, a design pattern is a general reusable solution to a commonly occurring problem.
@@ -105,7 +108,7 @@ I’m gonna introduce some basic design patters that have proven quite useful.</
 In the future we can implement new protocols or improve existing implementations without changing the client code.
 We can also change the type of object we create at runtime (e.g. using environment variables).</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">Reader</span> <span class="p">{</span>
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">Reader</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="k">virtual</span> <span class="o">~</span><span class="n">Reader</span><span class="p">()</span> <span class="p">{}</span>
     <span class="k">virtual</span> <span class="kt">void</span> <span class="n">read</span><span class="p">()</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
@@ -114,38 +117,38 @@ We can also change the type of object we create at runtime (e.g. using environme
 <span class="k">class</span> <span class="nc">LocalReader</span> <span class="o">:</span> <span class="k">public</span> <span class="n">Reader</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="kt">void</span> <span class="n">read</span><span class="p">()</span> <span class="p">{</span>
-        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;Reading from local FS&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"Reading from local FS"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">};</span>
 
 <span class="k">class</span> <span class="nc">HdfsReader</span> <span class="o">:</span> <span class="k">public</span> <span class="n">Reader</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="kt">void</span> <span class="n">read</span><span class="p">()</span> <span class="p">{</span>
-        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;Reading from HDFS&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"Reading from HDFS"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">};</span>
 
 <span class="k">class</span> <span class="nc">ReaderFactory</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="k">static</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Reader</span><span class="o">&gt;</span> <span class="n">makeReader</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span> <span class="n">type</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">type</span> <span class="o">==</span> <span class="s">&quot;local&quot;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">type</span> <span class="o">==</span> <span class="s">"local"</span><span class="p">)</span> <span class="p">{</span>
             <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Reader</span><span class="o">&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">LocalReader</span><span class="o">&gt;</span><span class="p">());</span>
         <span class="p">}</span>
-        <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">type</span> <span class="o">==</span> <span class="s">&quot;hdfs&quot;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">type</span> <span class="o">==</span> <span class="s">"hdfs"</span><span class="p">)</span> <span class="p">{</span>
             <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Reader</span><span class="o">&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">HdfsReader</span><span class="o">&gt;</span><span class="p">());</span>
         <span class="p">}</span>
         <span class="k">else</span> <span class="p">{</span>
-            <span class="k">throw</span> <span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">&quot;Unsupported type&quot;</span><span class="p">);</span>
+            <span class="k">throw</span> <span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">"Unsupported type"</span><span class="p">);</span>
         <span class="p">}</span>
     <span class="p">}</span>
 <span class="p">};</span>
 
 <span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
-    <span class="k">auto</span> <span class="n">reader1</span> <span class="o">=</span> <span class="n">ReaderFactory</span><span class="o">::</span><span class="n">makeReader</span><span class="p">(</span><span class="s">&quot;local&quot;</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">reader1</span> <span class="o">=</span> <span class="n">ReaderFactory</span><span class="o">::</span><span class="n">makeReader</span><span class="p">(</span><span class="s">"local"</span><span class="p">);</span>
     <span class="n">reader1</span><span class="o">-&gt;</span><span class="n">read</span><span class="p">();</span>
-    <span class="k">auto</span> <span class="n">reader2</span> <span class="o">=</span> <span class="n">ReaderFactory</span><span class="o">::</span><span class="n">makeReader</span><span class="p">(</span><span class="s">&quot;hdfs&quot;</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">reader2</span> <span class="o">=</span> <span class="n">ReaderFactory</span><span class="o">::</span><span class="n">makeReader</span><span class="p">(</span><span class="s">"hdfs"</span><span class="p">);</span>
     <span class="n">reader2</span><span class="o">-&gt;</span><span class="n">read</span><span class="p">();</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
 <h4 id="design-pattern-observer">Design Pattern: Observer</h4>
 
@@ -153,7 +156,7 @@ We can also change the type of object we create at runtime (e.g. using environme
 
 <p>When an event happens (in this example when we consume a line), we notify all the observers.</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">using</span> <span class="n">GenericMap</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">,</span> <span class="n">boost</span><span class="o">::</span><span class="n">any</span><span class="o">&gt;</span><span class="p">;</span>
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">using</span> <span class="n">GenericMap</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">,</span> <span class="n">boost</span><span class="o">::</span><span class="n">any</span><span class="o">&gt;</span><span class="p">;</span>
 
 <span class="k">class</span> <span class="nc">INotifiable</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
@@ -164,7 +167,7 @@ We can also change the type of object we create at runtime (e.g. using environme
 <span class="k">class</span> <span class="nc">EventLogger</span> <span class="o">:</span> <span class="k">public</span> <span class="n">INotifiable</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="kt">void</span> <span class="n">onEvent</span><span class="p">(</span><span class="k">const</span> <span class="n">GenericMap</span><span class="o">&amp;</span> <span class="n">data</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
-        <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span> <span class="n">text</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">any_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="s">&quot;text&quot;</span><span class="p">));</span>
+        <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span> <span class="n">text</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">any_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="s">"text"</span><span class="p">));</span>
         <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">text</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">};</span>
@@ -176,9 +179,9 @@ We can also change the type of object we create at runtime (e.g. using environme
     <span class="p">}</span>
     <span class="kt">void</span> <span class="n">read</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span>
         <span class="n">GenericMap</span> <span class="n">map</span><span class="p">;</span>
-        <span class="n">map</span><span class="p">[</span><span class="s">&quot;text&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;FYI&quot;</span><span class="p">);</span>
-        <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">i</span> <span class="p">:</span> <span class="n">boost</span><span class="o">::</span><span class="n">irange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span> <span class="p">{</span>
-            <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">observer</span><span class="p">:</span> <span class="n">observers_</span><span class="p">)</span> <span class="n">observer</span><span class="o">-&gt;</span><span class="n">onEvent</span><span class="p">(</span><span class="n">map</span><span class="p">);</span>
+        <span class="n">map</span><span class="p">[</span><span class="s">"text"</span><span class="p">]</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">"FYI"</span><span class="p">);</span>
+        <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="n">i</span> <span class="o">:</span> <span class="n">boost</span><span class="o">::</span><span class="n">irange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span> <span class="p">{</span>
+            <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="n">observer</span><span class="o">:</span> <span class="n">observers_</span><span class="p">)</span> <span class="n">observer</span><span class="o">-&gt;</span><span class="n">onEvent</span><span class="p">(</span><span class="n">map</span><span class="p">);</span>
         <span class="p">}</span>
     <span class="p">}</span>
  <span class="k">private</span><span class="o">:</span>
@@ -192,14 +195,14 @@ We can also change the type of object we create at runtime (e.g. using environme
     <span class="n">r</span><span class="p">.</span><span class="n">addObserver</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="n">INotifiable</span><span class="o">*&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ev1</span><span class="p">));</span>
     <span class="n">r</span><span class="p">.</span><span class="n">addObserver</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="n">INotifiable</span><span class="o">*&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ev2</span><span class="p">));</span>
     <span class="n">r</span><span class="p">.</span><span class="n">read</span><span class="p">();</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
 <h4 id="design-pattern-decorator">Design Pattern: Decorator</h4>
 
 <p>In object-oriented programming, the decorator pattern (also known as Wrapper) is a design pattern that allows behavior to be added to an individual object, either statically or dynamically, without affecting the behavior of other objects from the same class.
 Decorators are useful to add access control, logging, locking, to make a class thread safe etc.</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">IDownloader</span> <span class="p">{</span>
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">IDownloader</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="k">virtual</span> <span class="o">~</span><span class="n">IDownloader</span><span class="p">()</span> <span class="p">{}</span>
     <span class="k">virtual</span> <span class="kt">void</span> <span class="n">download</span><span class="p">()</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
@@ -208,7 +211,7 @@ Decorators are useful to add access control, logging, locking, to make a class t
 <span class="k">class</span> <span class="nc">SimpleDownloader</span> <span class="o">:</span> <span class="k">public</span> <span class="n">IDownloader</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="kt">void</span> <span class="n">download</span><span class="p">()</span> <span class="p">{</span>
-       <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;Downloading ...&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+       <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"Downloading ..."</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
     <span class="p">}</span>
 
 <span class="p">};</span>
@@ -219,9 +222,9 @@ Decorators are useful to add access control, logging, locking, to make a class t
         <span class="n">downloader_</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">downloader</span><span class="p">);</span>
     <span class="p">}</span>
     <span class="kt">void</span> <span class="n">download</span><span class="p">()</span> <span class="p">{</span>
-        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;begin log&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"begin log"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
         <span class="n">downloader_</span><span class="o">-&gt;</span><span class="n">download</span><span class="p">();</span>
-        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;end log&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"end log"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
     <span class="p">}</span>
  <span class="k">private</span><span class="o">:</span>
     <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">IDownloader</span><span class="o">&gt;</span> <span class="n">downloader_</span><span class="p">;</span>
@@ -233,7 +236,7 @@ Decorators are useful to add access control, logging, locking, to make a class t
             <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">IDownloader</span><span class="o">&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">SimpleDownloader</span><span class="o">&gt;</span><span class="p">()))));</span>
     <span class="n">simpleDownloader</span><span class="o">-&gt;</span><span class="n">download</span><span class="p">();</span>
     <span class="n">loggingDownloader</span><span class="o">-&gt;</span><span class="n">download</span><span class="p">();</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
 <p>So far we’ve talked about design patterns. Now I’d like to switch gears and talk about some techniques.</p>
 
@@ -241,24 +244,24 @@ Decorators are useful to add access control, logging, locking, to make a class t
 
 <p>Memory management in c++ is hard. It’s easy to forget a delete or make a mistake about the lifetime of object and introduce a memory-related bug.</p>
 
-<p>Smart pointers alleviate many of the problems with ‘raw’ pointers, mainly forgetting to delete the object and leaking memory, even in the presence of exceptions. There are many types of smart pointers but the main ones are <code>unique_ptr</code> and <code>shared_ptr</code> for unique and shared ownership respectively.</p>
+<p>Smart pointers alleviate many of the problems with ‘raw’ pointers, mainly forgetting to delete the object and leaking memory, even in the presence of exceptions. There are many types of smart pointers but the main ones are <code class="highlighter-rouge">unique_ptr</code> and <code class="highlighter-rouge">shared_ptr</code> for unique and shared ownership respectively.</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">A</span> <span class="p">{</span>
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">A</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="o">~</span><span class="n">A</span><span class="p">()</span> <span class="p">{</span>
-        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;In destructor&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"In destructor"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">};</span>
 
 <span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
    <span class="k">auto</span> <span class="n">ptr1</span><span class="p">(</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">A</span><span class="o">&gt;</span><span class="p">());</span>
-   <span class="c1">// auto ptr2 = ptr1;  // doesn&#39;t compile</span>
-
+   <span class="c1">// auto ptr2 = ptr1;  // doesn't compile
+</span>
    <span class="k">auto</span> <span class="n">ptr3</span><span class="p">(</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">A</span><span class="o">&gt;</span><span class="p">());</span>
    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">ptr3</span><span class="p">.</span><span class="n">use_count</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
    <span class="k">auto</span> <span class="n">ptr4</span> <span class="o">=</span> <span class="n">ptr3</span><span class="p">;</span>
    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">ptr3</span><span class="p">.</span><span class="n">use_count</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
 <h4 id="technique-c1114-features">Technique: c++11/14 features</h4>
 
@@ -271,7 +274,7 @@ Decorators are useful to add access control, logging, locking, to make a class t
   <li>…</li>
 </ul>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
     <span class="k">auto</span> <span class="n">myvec</span> <span class="o">=</span> <span class="p">{</span><span class="err">“</span><span class="n">hola</span><span class="err">”</span><span class="p">,</span><span class="err">”</span><span class="n">adios</span><span class="err">”</span><span class="p">};</span>
     <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">myvec</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="n">endl</span><span class="p">;</span>
     <span class="k">auto</span> <span class="n">anothervec</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">myvec</span><span class="p">);</span>
@@ -279,7 +282,7 @@ Decorators are useful to add access control, logging, locking, to make a class t
     <span class="n">counter</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
 
     <span class="k">auto</span> <span class="n">incr</span> <span class="o">=</span> <span class="p">[</span><span class="o">&amp;</span><span class="p">]</span> <span class="p">()</span> <span class="p">{</span>
-        <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">i</span> <span class="p">:</span> <span class="n">boost</span><span class="o">::</span><span class="n">irange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1000000</span><span class="p">))</span> <span class="p">{</span>
+        <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="n">i</span> <span class="o">:</span> <span class="n">boost</span><span class="o">::</span><span class="n">irange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1000000</span><span class="p">))</span> <span class="p">{</span>
             <span class="o">++</span><span class="n">counter</span><span class="p">;</span>
         <span class="p">}</span>
     <span class="p">};</span>
@@ -293,67 +296,67 @@ Decorators are useful to add access control, logging, locking, to make a class t
     <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">counter</span><span class="p">.</span><span class="n">load</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="n">endl</span><span class="p">;</span>
 
     <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
 <h4 id="technique-boost-anyvariant">Technique: boost any/variant</h4>
 
 <p>Variants offer a simple solution for manipulating an object that can hold different types in a uniform manner. Whereas standard containers such as std::vector may be thought of as “multi-value, single type,” variant is “multi-type, single value.”</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">LoggingVisitor</span> <span class="o">:</span> <span class="k">public</span> <span class="n">boost</span><span class="o">::</span><span class="n">static_visitor</span><span class="o">&lt;&gt;</span>
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">LoggingVisitor</span> <span class="o">:</span> <span class="k">public</span> <span class="n">boost</span><span class="o">::</span><span class="n">static_visitor</span><span class="o">&lt;&gt;</span>
 <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="kt">void</span> <span class="k">operator</span><span class="p">()(</span><span class="k">const</span> <span class="kt">int</span><span class="o">&amp;</span> <span class="n">i</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
-       <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;Visiting int&quot;</span> <span class="o">&lt;&lt;</span><span class="n">endl</span><span class="p">;</span>
+       <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"Visiting int"</span> <span class="o">&lt;&lt;</span><span class="n">endl</span><span class="p">;</span>
     <span class="p">}</span>
     <span class="kt">void</span> <span class="k">operator</span><span class="p">()(</span><span class="k">const</span> <span class="n">string</span><span class="o">&amp;</span> <span class="n">str</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
-       <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;Visiting string&quot;</span> <span class="o">&lt;&lt;</span><span class="n">endl</span><span class="p">;</span>
+       <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"Visiting string"</span> <span class="o">&lt;&lt;</span><span class="n">endl</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">};</span>
 
 <span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
     <span class="n">boost</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">variant1</span> <span class="o">=</span> <span class="mi">6</span><span class="p">;</span>
-    <span class="k">auto</span> <span class="n">int1</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">variant1</span><span class="p">);</span>  <span class="c1">// ok</span>
-    <span class="n">try</span> <span class="p">{</span>
+    <span class="k">auto</span> <span class="n">int1</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">variant1</span><span class="p">);</span>  <span class="c1">// ok
+</span>    <span class="n">try</span> <span class="p">{</span>
         <span class="k">auto</span> <span class="n">str1</span> <span class="o">=</span>
-            <span class="n">boost</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="n">variant1</span><span class="p">);</span> <span class="c1">//fails</span>
-    <span class="p">}</span>
+            <span class="n">boost</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="n">variant1</span><span class="p">);</span> <span class="c1">//fails
+</span>    <span class="p">}</span>
     <span class="k">catch</span> <span class="p">(</span><span class="k">const</span> <span class="n">boost</span><span class="o">::</span><span class="n">bad_get</span><span class="o">&amp;</span> <span class="n">e</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;fails&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"fails"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
     <span class="p">}</span>
 
     <span class="n">boost</span><span class="o">::</span><span class="n">apply_visitor</span><span class="p">(</span><span class="n">LoggingVisitor</span><span class="p">(),</span> <span class="n">variant1</span><span class="p">);</span>
 
-    <span class="n">boost</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">variant2</span> <span class="o">=</span> <span class="s">&quot;hola&quot;</span><span class="p">;</span>
+    <span class="n">boost</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">variant2</span> <span class="o">=</span> <span class="s">"hola"</span><span class="p">;</span>
     <span class="n">boost</span><span class="o">::</span><span class="n">apply_visitor</span><span class="p">(</span><span class="n">LoggingVisitor</span><span class="p">(),</span> <span class="n">variant2</span><span class="p">);</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
-<p>If your function needs to return any type use <code>boost::any</code>. The advantage of <code>boost::any</code> vs a <code>void *</code> pointer is type safety.</p>
+<p>If your function needs to return any type use <code class="highlighter-rouge">boost::any</code>. The advantage of <code class="highlighter-rouge">boost::any</code> vs a <code class="highlighter-rouge">void *</code> pointer is type safety.</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="cp">#include &lt;boost/any.hpp&gt;</span>
-
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="cp">#include &lt;boost/any.hpp&gt;
+</span>
 <span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
     <span class="n">boost</span><span class="o">::</span><span class="n">any</span> <span class="n">any1</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">0</span><span class="p">));</span>
-    <span class="kt">uint64_t</span> <span class="n">int1</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">any_cast</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">any1</span><span class="p">);</span>  <span class="c1">// ok</span>
-
+    <span class="kt">uint64_t</span> <span class="n">int1</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">any_cast</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">any1</span><span class="p">);</span>  <span class="c1">// ok
+</span>
     <span class="n">boost</span><span class="o">::</span><span class="n">any</span> <span class="n">any2</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">0</span><span class="p">));</span>
     <span class="n">try</span> <span class="p">{</span>
-        <span class="kt">int</span> <span class="n">int2</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">any_cast</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">any2</span><span class="p">);</span>  <span class="c1">// fails</span>
-    <span class="p">}</span>
+        <span class="kt">int</span> <span class="n">int2</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">any_cast</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">any2</span><span class="p">);</span>  <span class="c1">// fails
+</span>    <span class="p">}</span>
     <span class="k">catch</span> <span class="p">(</span><span class="k">const</span> <span class="n">boost</span><span class="o">::</span><span class="n">bad_any_cast</span><span class="o">&amp;</span> <span class="n">e</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;fail&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"fail"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
     <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
 <p>With this we conclude the design section. The following sections gives an overview of some useful c++ tools.</p>
 
 <h3 id="tools">Tools</h3>
 
 <h4 id="clang">Clang</h4>
-<p><code>Clang</code> is a nice alternative to <code>g++</code>. It gives you faster compilation times and more meaningful errors.
+<p><code class="highlighter-rouge">Clang</code> is a nice alternative to <code class="highlighter-rouge">g++</code>. It gives you faster compilation times and more meaningful errors.
 It also comes with many useful tools that we’ll explore in later sections.</p>
 
 <h4 id="use-cmakescons-for-building">Use cmake/scons for building</h4>
-<p>Instead of using raw Makefiles you can use something more modern like <code>Cmake</code> or <code>Scons</code>.
+<p>Instead of using raw Makefiles you can use something more modern like <code class="highlighter-rouge">Cmake</code> or <code class="highlighter-rouge">Scons</code>.
 Those tools give you cross-platform builds, automatic discovery and configuration of the toolchain, automatic dependency management, debug/release modes and many other useful features.</p>
 
 <p>I’m not saying all those things can’t be done with make, but that involves a significant effort.</p>
@@ -370,7 +373,7 @@ working as expected and gives you confidence to add new features or make changes
 
 <p>Test small functionality with unit testing and have integration and performance testing as well.</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">Calculator</span> <span class="p">{</span>
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="k">class</span> <span class="nc">Calculator</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="k">static</span> <span class="kt">uint64_t</span> <span class="n">sum</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint64_t</span> <span class="n">op1</span><span class="p">,</span> <span class="k">const</span> <span class="kt">uint64_t</span> <span class="n">op2</span><span class="p">)</span> <span class="p">{</span>
         <span class="k">return</span> <span class="n">op1</span> <span class="o">+</span> <span class="n">op2</span><span class="p">;</span>
@@ -389,7 +392,7 @@ working as expected and gives you confidence to add new features or make changes
 <span class="p">};</span>
 
 <span class="o">::</span><span class="n">std</span><span class="o">::</span><span class="n">ostream</span><span class="o">&amp;</span> <span class="k">operator</span><span class="o">&lt;&lt;</span><span class="p">(</span><span class="o">::</span><span class="n">std</span><span class="o">::</span><span class="n">ostream</span><span class="o">&amp;</span> <span class="n">os</span><span class="p">,</span> <span class="k">const</span> <span class="n">MyConfig</span><span class="o">&amp;</span> <span class="n">config</span><span class="p">)</span> <span class="p">{</span>
-  <span class="k">return</span> <span class="n">os</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;op1: &quot;</span> <span class="o">&lt;&lt;</span> <span class="n">config</span><span class="p">.</span><span class="n">op1_</span> <span class="o">&lt;&lt;</span> <span class="s">&quot; op2: &quot;</span> <span class="o">&lt;&lt;</span> <span class="n">config</span><span class="p">.</span><span class="n">op2_</span><span class="p">;</span>
+  <span class="k">return</span> <span class="n">os</span> <span class="o">&lt;&lt;</span> <span class="s">"op1: "</span> <span class="o">&lt;&lt;</span> <span class="n">config</span><span class="p">.</span><span class="n">op1_</span> <span class="o">&lt;&lt;</span> <span class="s">" op2: "</span> <span class="o">&lt;&lt;</span> <span class="n">config</span><span class="p">.</span><span class="n">op2_</span><span class="p">;</span>
 <span class="p">}</span>
 <span class="k">class</span> <span class="nc">MyTest</span> <span class="o">:</span> <span class="k">public</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">TestWithParam</span><span class="o">&lt;</span><span class="n">MyConfig</span><span class="o">&gt;</span> <span class="p">{</span>
 
@@ -408,24 +411,24 @@ working as expected and gives you confidence to add new features or make changes
 <span class="n">INSTANTIATE_TEST_CASE_P</span><span class="p">(</span><span class="n">MyValues</span><span class="p">,</span> <span class="n">MyTest</span><span class="p">,</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Values</span><span class="p">(</span>
     <span class="n">MyConfig</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
     <span class="n">MyConfig</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
-<span class="p">));</span></code></pre></div>
+<span class="p">));</span></code></pre></figure>
 
 <p>Some useful Google Test tips are:</p>
 
 <ul>
   <li>Use parameterized tests</li>
-  <li>Run only some tests with <code>--gtest-filter=&lt;pattern&gt;</code></li>
-  <li>List all tests: <code>--gtest_list_tests</code></li>
-  <li>Exclude certain tests by prepending <code>DISABLED_</code> to the test name</li>
+  <li>Run only some tests with <code class="highlighter-rouge">--gtest-filter=&lt;pattern&gt;</code></li>
+  <li>List all tests: <code class="highlighter-rouge">--gtest_list_tests</code></li>
+  <li>Exclude certain tests by prepending <code class="highlighter-rouge">DISABLED_</code> to the test name</li>
 </ul>
 
 <h4 id="mocking">Mocking</h4>
 
 <p>Mocks are useful when you want to test a component but its dependencies haven’t been implemented yet or if the dependencies are complex to set up (e.g. an external HTTP service).</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="cp">#include &lt;gmock/gmock.h&gt;</span>
-<span class="cp">#include &lt;gtest/gtest.h&gt;</span>
-
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="cp">#include &lt;gmock/gmock.h&gt;
+#include &lt;gtest/gtest.h&gt;
+</span>
 <span class="k">class</span> <span class="nc">ICalculator</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="k">virtual</span> <span class="kt">uint64_t</span> <span class="n">sum</span> <span class="p">(</span><span class="k">const</span> <span class="kt">uint64_t</span> <span class="n">op1</span><span class="p">,</span> <span class="k">const</span> <span class="kt">uint64_t</span> <span class="n">op2</span><span class="p">)</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
@@ -435,10 +438,10 @@ working as expected and gives you confidence to add new features or make changes
 <span class="k">class</span> <span class="nc">OnlineCalculator</span> <span class="o">:</span> <span class="k">public</span> <span class="n">ICalculator</span> <span class="p">{</span>
  <span class="k">public</span><span class="o">:</span>
     <span class="kt">uint64_t</span> <span class="n">sum</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint64_t</span> <span class="n">op1</span><span class="p">,</span> <span class="k">const</span> <span class="kt">uint64_t</span> <span class="n">op2</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">throw</span> <span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">&quot;Unimplemented&quot;</span><span class="p">);</span>
+        <span class="k">throw</span> <span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">"Unimplemented"</span><span class="p">);</span>
     <span class="p">}</span>
     <span class="kt">uint64_t</span> <span class="n">mul</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint64_t</span> <span class="n">op1</span><span class="p">,</span> <span class="k">const</span> <span class="kt">uint64_t</span> <span class="n">op2</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">throw</span> <span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">&quot;Unimplemented&quot;</span><span class="p">);</span>
+        <span class="k">throw</span> <span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">"Unimplemented"</span><span class="p">);</span>
     <span class="p">}</span>
 <span class="p">};</span>
 
@@ -460,7 +463,7 @@ working as expected and gives you confidence to add new features or make changes
 
     <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">c</span><span class="p">.</span><span class="n">mul</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span> <span class="mi">2</span><span class="p">);</span>
     <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">c</span><span class="p">.</span><span class="n">mul</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">),</span> <span class="mi">12</span><span class="p">);</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
 <p>Remember we mentioned Clang comes with nice tools? Here are 2 examples.</p>
 
@@ -478,26 +481,27 @@ working as expected and gives you confidence to add new features or make changes
 
 <p>Typical slowdown introduced by Address Sanitizer is 2x which is way faster than Valgrind.</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
    <span class="kt">int</span> <span class="n">array</span><span class="p">[</span><span class="mi">10</span><span class="p">];</span>
    <span class="n">array</span><span class="p">[</span><span class="mi">10</span><span class="p">]</span> <span class="o">=</span> <span class="mi">123</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
 <p>In this example we’re making an out-of-bounds access. Without Adress Sanitizer many times this error goes unnoticed.
 However when compiling with Address Sanitizer support we get the following warning:</p>
 
-<pre><code>[32, 72) 'array' &lt;== Memory access at offset 72 overflows this variable
+<div class="highlighter-rouge"><pre class="highlight"><code>[32, 72) 'array' &lt;== Memory access at offset 72 overflows this variable
 </code></pre>
+</div>
 
 <h4 id="thread-sanitizer">Thread Sanitizer</h4>
 
 <p>ThreadSanitizer is a tool that detects data races. It consists of a compiler instrumentation module and a run-time library. Typical slowdown introduced by ThreadSanitizer is about 5x-15x. Typical memory overhead is about 5x-10x.</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
 <span class="p">{</span>
    <span class="kt">uint64_t</span> <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
    <span class="k">auto</span> <span class="n">incr</span> <span class="o">=</span> <span class="p">[</span><span class="o">&amp;</span><span class="p">]</span> <span class="p">()</span> <span class="p">{</span>
-       <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">i</span> <span class="p">:</span> <span class="n">boost</span><span class="o">::</span><span class="n">irange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1000000</span><span class="p">))</span> <span class="p">{</span>
+       <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="n">i</span> <span class="o">:</span> <span class="n">boost</span><span class="o">::</span><span class="n">irange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1000000</span><span class="p">))</span> <span class="p">{</span>
            <span class="o">++</span><span class="n">counter</span><span class="p">;</span>
        <span class="p">}</span>
    <span class="p">};</span>
@@ -511,22 +515,23 @@ However when compiling with Address Sanitizer support we get the following warni
    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">counter</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
 
    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
 <p>In this example there’s a race condition and Thread Sanitizer gives us the following warning:</p>
 
-<pre><code>WARNING: ThreadSanitizer: data race (pid=79195)
+<div class="highlighter-rouge"><pre class="highlight"><code>WARNING: ThreadSanitizer: data race (pid=79195)
 Write of size 8 at 0x7fffa50a2a60 by thread T2:
 Previous write of size 8 at 0x7fffa50a2a60 by thread T1:
 </code></pre>
+</div>
 
-<p>To fix the previous exam[le we can make <code>incr</code> atomic or use a mutex.</p>
+<p>To fix the previous exam[le we can make <code class="highlighter-rouge">incr</code> atomic or use a mutex.</p>
 
 <h4 id="facebook-folly">Facebook Folly</h4>
 <p>Folly is a collection of reusable C++ library artifacts developed and used at Facebook.
-Some examples are faster replacements for <code>std::string</code> and <code>std::vector</code> and a useful benchmarking module:</p>
+Some examples are faster replacements for <code class="highlighter-rouge">std::string</code> and <code class="highlighter-rouge">std::vector</code> and a useful benchmarking module:</p>
 
-<div class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="n">BENCHMARK</span><span class="p">(</span><span class="n">copy</span><span class="p">)</span> <span class="p">{</span>
+<figure class="highlight"><pre><code class="language-c--" data-lang="c++"><span class="n">BENCHMARK</span><span class="p">(</span><span class="n">copy</span><span class="p">)</span> <span class="p">{</span>
     <span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span> <span class="n">v</span><span class="p">;</span>
     <span class="n">v</span><span class="p">.</span><span class="n">resize</span><span class="p">(</span><span class="mi">128</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">);</span>
     <span class="n">FOR_EACH_RANGE</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
@@ -544,46 +549,51 @@ Some examples are faster replacements for <code>std::string</code> and <code>std
 
 <span class="kt">int</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
     <span class="n">runBenchmarks</span><span class="p">();</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span></code></pre></figure>
 
 <h4 id="google-performance-tools">Google Performance Tools</h4>
 
 <p>Gperftools is useful to find out where the program spends cycles. It accounts for network and IO time as well.
 You can generate a profile using:</p>
 
-<pre><code>$ CPUPROFILE=/tmp/$PROFILENAME.prof LD_PRELOAD=/usr/local/lib/libprofiler.so:/usr/lib/libtcmalloc.so $BINARY $ARGS
+<div class="highlighter-rouge"><pre class="highlight"><code>$ CPUPROFILE=/tmp/$PROFILENAME.prof LD_PRELOAD=/usr/local/lib/libprofiler.so:/usr/lib/libtcmalloc.so $BINARY $ARGS
 $ pprof --gv $BINARY /tmp/$PROFILENAME.prof
 </code></pre>
+</div>
 
 <p>This is an example profile:
 <img src="/blog/assets/pprof.png" alt="gperftools" /></p>
 
 <h4 id="linting">Linting</h4>
-<p><code>cpplint.py</code> gives a lot useful warnings about code style and common c++ errors:</p>
+<p><code class="highlighter-rouge">cpplint.py</code> gives a lot useful warnings about code style and common c++ errors:</p>
 
-<pre><code>$ cpplint.py &lt;files&gt;
+<div class="highlighter-rouge"><pre class="highlight"><code>$ cpplint.py &lt;files&gt;
 </code></pre>
+</div>
 
 <h4 id="docker">Docker</h4>
 <p>Docker gives you a single environment in which you have total control over dependencies and versions. And the best part is that the environment will be the same (or very similar) in development and production.</p>
 
 <p>To “Dockerize” an application all you need to do is to create a Dockerfile. For static binaries this is really simple:</p>
 
-<pre><code>// Dockerfile
+<div class="highlighter-rouge"><pre class="highlight"><code>// Dockerfile
 FROM centos
 COPY myapp /tmp/
 CMD /tmp/myapp
 </code></pre>
+</div>
 
 <p>We can build the Docker image with:</p>
 
-<pre><code>$ docker build -t jorgemarsal/myapp:0.0.1 .
+<div class="highlighter-rouge"><pre class="highlight"><code>$ docker build -t jorgemarsal/myapp:0.0.1 .
 </code></pre>
+</div>
 
 <p>And run it with:</p>
 
-<pre><code>$ docker run --name myapp jorgemarsal/myapp:0.0.1
+<div class="highlighter-rouge"><pre class="highlight"><code>$ docker run --name myapp jorgemarsal/myapp:0.0.1
 </code></pre>
+</div>
 
 <h4 id="continous-integration-jenkins">Continous Integration (Jenkins)</h4>
 <p>All the tooling presented before should be integrated with CI:</p>
@@ -613,6 +623,32 @@ Other topics that are fundamental but we didn’t discuss are:</p>
   </article>
 
 </div>
+
+<a href="https://twitter.com/jorgemarsal" class="twitter-follow-button" data-show-count="false" data-size="large">Follow @jorgemarsal</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+<div id="disqus_thread"></div>
+<script>
+/**
+* RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+* LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables
+*/
+/*
+var disqus_config = function () {
+this.page.url = PAGE_URL; // Replace PAGE_URL with your page's canonical URL variable
+this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+};
+*/
+(function() { // DON'T EDIT BELOW THIS LINE
+var d = document, s = d.createElement('script');
+
+s.src = '//jorgemarsal.disqus.com/embed.js';
+
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
 
       </div>
     </div>

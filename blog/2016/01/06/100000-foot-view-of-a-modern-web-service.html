@@ -7,7 +7,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>100000-foot view of a modern web service </title>
-  <meta name="description" content="In this post we’re going to explore how to deliver a modern web service. To make things clearer we’re going to use a OCR service as an example. All the code ...">
+  <meta name="description" content="">
+  
+  <meta name="keywords" content=""/>
+  
 
   <link rel="stylesheet" href="/blog/css/main.css">
   <link rel="canonical" href="http://jorgemarsal.github.io/blog/2016/01/06/100000-foot-view-of-a-modern-web-service.html">
@@ -75,7 +78,7 @@
   <article class="post-content">
     <p>In this post we’re going to explore how to deliver a modern web service. To make things clearer we’re going to use a OCR service as an example. All the code is available on <a href="https://github.com/jorgemarsal/webocr/tree/master/webocr">Github</a>.</p>
 
-<p><code>WebOCR</code> extracts text from user uploaded images using a technique known as <a href="https://en.wikipedia.org/wiki/Optical_character_recognition">OCR</a>. Users provide the image information (for now just the URL) and the service downloads the image, extracts the text and sends the result back to the user.</p>
+<p><code class="highlighter-rouge">WebOCR</code> extracts text from user uploaded images using a technique known as <a href="https://en.wikipedia.org/wiki/Optical_character_recognition">OCR</a>. Users provide the image information (for now just the URL) and the service downloads the image, extracts the text and sends the result back to the user.</p>
 
 <h3 id="architecture">Architecture</h3>
 <p>The architecture is shown in this picture below:</p>
@@ -99,7 +102,7 @@
       <li>The task server sends the task to a queue (RabbitMQ in this case).</li>
       <li>The worker picks up the task from the queue.</li>
       <li>The server polls the task server periodically to update the task status and stores that information.</li>
-      <li>The client can also access this information through the <code>/queue</code> endpoint in the WebOCR service.</li>
+      <li>The client can also access this information through the <code class="highlighter-rouge">/queue</code> endpoint in the WebOCR service.</li>
       <li>Eventually the task will succeed or fail. If the task succeeds the client will get redirected to the result. If it fails the client can retrieve the failure cause from the /queue endpoint.</li>
       <li>Both the client and the web server have timeouts and consider the task failed if they don’t receive a response in a timely manner.</li>
     </ul>
@@ -108,7 +111,7 @@
 
 <p>This is an example exchange:</p>
 
-<pre><code>curl -v -H "Content-Type: application/json" -X POST \
+<div class="highlighter-rouge"><pre class="highlight"><code>curl -v -H "Content-Type: application/json" -X POST \
 -d '{"url":"http://localhost:1234/static/ocr/sample1.jpg"}' \
 http://localhost:1234/api/v1/services
 ...
@@ -116,20 +119,22 @@ HTTP/1.1 202 Accepted
 Content-Location: /queue/7bc6c484-df47-4cb6-b254-17b770b52060
 ….
 </code></pre>
+</div>
 
 <p>The server replies with a 202 code and a URL to query the task status. If we access that URL and the task is still pending we’ll get a 200 ok and info about the task. When the task is done we’ll get a 303 and a link to the newly created resource:</p>
 
-<pre><code>curl -v http://localhost:1234/queue/abb5fbbf-9519-4d21-af23-e3a7da1ca480
+<div class="highlighter-rouge"><pre class="highlight"><code>curl -v http://localhost:1234/queue/abb5fbbf-9519-4d21-af23-e3a7da1ca480
 
 ….
 HTTP/1.1 303 See Other
 Location: /api/v1/service/90
 …
 </code></pre>
+</div>
 
 <p>Let’s get the result:</p>
 
-<pre><code>$ curl -v http://localhost:1234/api/v1/service/90
+<div class="highlighter-rouge"><pre class="highlight"><code>$ curl -v http://localhost:1234/api/v1/service/90
 HTTP/1.1 200 OK
 {
     "result": "THINGS YOU SHOULD KNOW ABOU ...
@@ -138,15 +143,16 @@ HTTP/1.1 200 OK
     "url": "http://localhost:1234/static/ocr/sample1.jpg"
 }
 </code></pre>
+</div>
 
 <p>We also have a websocket channel to send real time information of the task progress to the frontend.</p>
 
 <p>The next sections go into more detail on how all of this is implemented.</p>
 
 <h3 id="backend">Backend</h3>
-<p>The backend is a Tornado app that implements the restful API. There aren’t any blocking operations. We either use event-loop aware functionality (like Tornado’s <code>AsyncHTTPClient</code> or run the task in a different thread with the <code>@run_on_executor</code> decorator. By using this design the server can handle many concurrent user connections.</p>
+<p>The backend is a Tornado app that implements the restful API. There aren’t any blocking operations. We either use event-loop aware functionality (like Tornado’s <code class="highlighter-rouge">AsyncHTTPClient</code> or run the task in a different thread with the <code class="highlighter-rouge">@run_on_executor</code> decorator. By using this design the server can handle many concurrent user connections.</p>
 
-<pre><code>@run_on_executor
+<div class="highlighter-rouge"><pre class="highlight"><code>@run_on_executor
 def _on_executor(self, fn, *args, **kwargs):
     """Execute the given function on another thread"""
     return fn(*args, **kwargs)
@@ -156,18 +162,20 @@ def f():
     http_client = AsyncHTTPClient()
     response = yield http_client.fetch("http://example.com")
 </code></pre>
+</div>
 
 <h4 id="database">Database</h4>
 
 <p>Choosing the right database is probably one of the most important decision in a web project. In this case, since the performance requirements are modest, we don’t need a database cluster and we can live with a single node and snapshot backups. In this situation we can pretty much do whatever we want and we’ve chosen MySQL. When the performance requirements are higher then we need to consider other solutions and keep in mind the associated performance and consistency tradeoffs.</p>
 
-<p>As mentioned earlier the backend stores the state in a MySQL database but instead of having a fixed schema we have a <code>schemaless</code> design. The original idea comes from <a href="https://backchannel.org/blog/friendfeed-schemaless-mysql">Friendfeed’s schemaless design</a> and the implementation (with minor modifications) comes from <a href="https://github.com/eklitzke/schemaless">Evan Klitzke</a>.</p>
+<p>As mentioned earlier the backend stores the state in a MySQL database but instead of having a fixed schema we have a <code class="highlighter-rouge">schemaless</code> design. The original idea comes from <a href="https://backchannel.org/blog/friendfeed-schemaless-mysql">Friendfeed’s schemaless design</a> and the implementation (with minor modifications) comes from <a href="https://github.com/eklitzke/schemaless">Evan Klitzke</a>.</p>
 
 <p>In this design we store compressed pickled python dictionaries that can hold arbitrary data, making schema evolution simple. Note that this idea is from 2009 when NoSQL offerings weren’t as mature as today. Probably nowadays we’d be better off using something like Mongo. Storing and querying the database is done like this:</p>
 
-<pre><code>row = self.db.put(dict(url=service['url'], state='PENDING'))
+<div class="highlighter-rouge"><pre class="highlight"><code>row = self.db.put(dict(url=service['url'], state='PENDING'))
 rows = url_index.query(c.url == url)
 </code></pre>
+</div>
 
 <h4 id="task-server">Task server</h4>
 <p>We’ve decided to offload the actual computations to a task server. This way we can keep a simple WebOCR service and scale the task server independently if the load increases.</p>
@@ -182,10 +190,11 @@ rows = url_index.query(c.url == url)
 
 <p>A lot of advice about Python itself can be found in the fantastic book <a href="http://www.effectivepython.com/">Effective Python</a>.</p>
 
-<p>One of the most important things to do when developing software is having good testing. One rule that I find particularly useful to increase confidence is having a high test coverage. Keep in mind that high coverage is not enough though. It’s important to design a very comprehensive test plan. Otherwise you can have 100% coverage but ignore a lot of real-world cases. A tool that works well is <code>pytest-cov</code>. You can get coverage numbers using this command:</p>
+<p>One of the most important things to do when developing software is having good testing. One rule that I find particularly useful to increase confidence is having a high test coverage. Keep in mind that high coverage is not enough though. It’s important to design a very comprehensive test plan. Otherwise you can have 100% coverage but ignore a lot of real-world cases. A tool that works well is <code class="highlighter-rouge">pytest-cov</code>. You can get coverage numbers using this command:</p>
 
-<pre><code>py.test --cov=webocr --cov-report=html
+<div class="highlighter-rouge"><pre class="highlight"><code>py.test --cov=webocr --cov-report=html
 </code></pre>
+</div>
 
 <p>As an example if we want to test a call to a remote service we should at least test a couple scenarios:</p>
 
@@ -198,7 +207,7 @@ rows = url_index.query(c.url == url)
 
 <p>To easily test all those error conditions we can mock the service using somethind like this:</p>
 
-<pre><code>class App(object):
+<div class="highlighter-rouge"><pre class="highlight"><code>class App(object):
     def __init__(self, service):
         self.service = service
 
@@ -216,10 +225,11 @@ def test_error():
     “”” Mock service that triggers all the error conditions “””
     app = App(mock_service)
 </code></pre>
+</div>
 
 <p>Correctness is absolute necessary but you should also take a look at the performance of the service. You can use something like <a href="http://jmeter.apache.org">Jmeter</a> for that.</p>
 
-<p>Finally a linting tool like <code>flakes8</code> can point common errors and style issues.</p>
+<p>Finally a linting tool like <code class="highlighter-rouge">flakes8</code> can point common errors and style issues.</p>
 
 <p>I recommend having testing, linting and other tooling as part of the CI process both on the client (via Git hooks) and on the server (with something like Jenkins).</p>
 
@@ -250,6 +260,32 @@ One of the main abstraction in Kubernetes is the Replication Controller. You can
   </article>
 
 </div>
+
+<a href="https://twitter.com/jorgemarsal" class="twitter-follow-button" data-show-count="false" data-size="large">Follow @jorgemarsal</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+<div id="disqus_thread"></div>
+<script>
+/**
+* RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+* LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables
+*/
+/*
+var disqus_config = function () {
+this.page.url = PAGE_URL; // Replace PAGE_URL with your page's canonical URL variable
+this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+};
+*/
+(function() { // DON'T EDIT BELOW THIS LINE
+var d = document, s = d.createElement('script');
+
+s.src = '//jorgemarsal.disqus.com/embed.js';
+
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
 
       </div>
     </div>

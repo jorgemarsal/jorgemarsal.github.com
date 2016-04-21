@@ -7,7 +7,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>Tracking memory usage in Linux</title>
-  <meta name="description" content="When working with big data optimizing the memory footprint is important.">
+  <meta name="description" content="">
+  
+  <meta name="keywords" content=""/>
+  
 
   <link rel="stylesheet" href="/blog/css/main.css">
   <link rel="canonical" href="http://jorgemarsal.github.io/blog/2015/03/16/tracking-memory-usage-in-linux.html">
@@ -75,49 +78,55 @@
   <article class="post-content">
     <p>When working with big data optimizing the memory footprint is important.</p>
 
-<p>In this example we’re serializing a data frame with 50 million elements using R’s native <code>serialize</code> function:</p>
+<p>In this example we’re serializing a data frame with 50 million elements using R’s native <code class="highlighter-rouge">serialize</code> function:</p>
 
-<pre><code>df &lt;- data.frame(runif(50e6,1,10))
+<div class="highlighter-rouge"><pre class="highlight"><code>df &lt;- data.frame(runif(50e6,1,10))
 ser &lt;- serialize(df,NULL)
 </code></pre>
+</div>
 
 <p>Each element is a double that takes 8 bytes. If we do the math the data frame should be 400MB (50M elements, 8byte each). The serialized version should be around 400MB too. However if we run that code and check the memory usage we see the following:</p>
 
-<pre><code>$ cat /proc/15155/status |grep Vm
+<div class="highlighter-rouge"><pre class="highlight"><code>$ cat /proc/15155/status |grep Vm
 ...
 VmHWM:	 1207792 kB
 VmRSS:	  817272 kB
 </code></pre>
+</div>
 
-<p><code>VmRSS</code> is the resident memory and in this case it’s around 800MB as we’d expect. However the peak memory usage (<code>VmHWM</code>) is 1.2GB. Let’s fire up <code>GDB</code> and see what’s going on. The relevant R code is:</p>
+<p><code class="highlighter-rouge">VmRSS</code> is the resident memory and in this case it’s around 800MB as we’d expect. However the peak memory usage (<code class="highlighter-rouge">VmHWM</code>) is 1.2GB. Let’s fire up <code class="highlighter-rouge">GDB</code> and see what’s going on. The relevant R code is:</p>
 
-<pre><code>InitMemOutPStream(&amp;out, &amp;mbs, type, version, hook, fun);
+<div class="highlighter-rouge"><pre class="highlight"><code>InitMemOutPStream(&amp;out, &amp;mbs, type, version, hook, fun);
 R_Serialize(object, &amp;out);
 val =  CloseMemOutPStream(&amp;out);
 ...
 return val;
 </code></pre>
+</div>
 
-<p>If we set a breakpoint right after <code>R_serialize</code> we see that the memory usage is around 800MB, as we’d expect:</p>
+<p>If we set a breakpoint right after <code class="highlighter-rouge">R_serialize</code> we see that the memory usage is around 800MB, as we’d expect:</p>
 
-<pre><code>VmRSS:	  816664 kB
+<div class="highlighter-rouge"><pre class="highlight"><code>VmRSS:	  816664 kB
 </code></pre>
+</div>
 
-<p>However is we step into <code>CloseMemOutPStream</code> we see this:</p>
+<p>However is we step into <code class="highlighter-rouge">CloseMemOutPStream</code> we see this:</p>
 
-<pre><code>PROTECT(val = allocVector(RAWSXP, mb-&gt;count));
+<div class="highlighter-rouge"><pre class="highlight"><code>PROTECT(val = allocVector(RAWSXP, mb-&gt;count));
 memcpy(RAW(val), mb-&gt;buf, mb-&gt;count);
 free_mem_buffer(mb);
 </code></pre>
+</div>
 
-<p>The code is allocating a whole new buffer and copying the serialized object there. If we set a breakpoint just before <code>free</code>, the memory usage at that point is 1.2GB.</p>
+<p>The code is allocating a whole new buffer and copying the serialized object there. If we set a breakpoint just before <code class="highlighter-rouge">free</code>, the memory usage at that point is 1.2GB.</p>
 
-<pre><code>VmRSS:	 1207384 kB
+<div class="highlighter-rouge"><pre class="highlight"><code>VmRSS:	 1207384 kB
 </code></pre>
+</div>
 
 <h3 id="optimizing-the-code">Optimizing the code</h3>
 
-<p>Using R’s <code>serialize</code> we need 3x the amount of original memory (1.2GB for a 400MB) data frame, which is not acceptable.</p>
+<p>Using R’s <code class="highlighter-rouge">serialize</code> we need 3x the amount of original memory (1.2GB for a 400MB) data frame, which is not acceptable.</p>
 
 <p>Ideally we’d like to avoid the last copy and just serialize the object in a final buffer.</p>
 
@@ -126,6 +135,32 @@ free_mem_buffer(mb);
   </article>
 
 </div>
+
+<a href="https://twitter.com/jorgemarsal" class="twitter-follow-button" data-show-count="false" data-size="large">Follow @jorgemarsal</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+<div id="disqus_thread"></div>
+<script>
+/**
+* RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+* LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables
+*/
+/*
+var disqus_config = function () {
+this.page.url = PAGE_URL; // Replace PAGE_URL with your page's canonical URL variable
+this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+};
+*/
+(function() { // DON'T EDIT BELOW THIS LINE
+var d = document, s = d.createElement('script');
+
+s.src = '//jorgemarsal.disqus.com/embed.js';
+
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
 
       </div>
     </div>
