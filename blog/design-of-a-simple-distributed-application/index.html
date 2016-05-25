@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Design of a simple distributed application – Jorge Martinez – Big data and distributed systems.</title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="Introduction
+Today I’m going to explain how to design a simple distributed application. The goal is to read a really big file into memory. Since the file doesn’t fit in a single machine’s memory we need to design a system to split the file across different machines. A possible architecture comprises a master that breaks the file into smaller chunks and N workers that process those chunks.
+
+" />
+    <meta property="og:description" content="Introduction
+Today I’m going to explain how to design a simple distributed application. The goal is to read a really big file into memory. Since the file doesn’t fit in a single machine’s memory we need to design a system to split the file across different machines. A possible architecture comprises a master that breaks the file into smaller chunks and N workers that process those chunks.
+
+" />
+    
+    <meta name="author" content="Jorge Martinez" />
+
+    
+    <meta property="og:title" content="Design of a simple distributed application" />
+    <meta property="twitter:title" content="Design of a simple distributed application" />
+    
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link rel="stylesheet" type="text/css" href="/blog/style.css" />
+    <link rel="alternate" type="application/rss+xml" title="Jorge Martinez - Big data and distributed systems." href="/blog/feed.xml" />
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+    <div class="wrapper-masthead">
+      <div class="container">
+        <header class="masthead clearfix">
+          <a href="/blog/" class="site-avatar"><img src="https://avatars2.githubusercontent.com/u/1408535" /></a>
+
+          <div class="site-info">
+            <h1 class="site-name"><a href="/blog/">Jorge Martinez</a></h1>
+            <p class="site-description">Big data and distributed systems.</p>
+          </div>
+
+          <nav>
+            <a href="/blog/">Blog</a>
+            <a href="/blog/about">About</a>
+          </nav>
+        </header>
+      </div>
+    </div>
+
+    <div id="main" role="main" class="container">
+      <article class="post">
+  <h1>Design of a simple distributed application</h1>
+
+  <div class="entry">
+    <h3 id="introduction">Introduction</h3>
+<p>Today I’m going to explain how to design a simple distributed application. The goal is to read a really big file into memory. Since the file doesn’t fit in a single machine’s memory we need to design a system to split the file across different machines. A possible architecture comprises a <code class="highlighter-rouge">master</code> that breaks the file into smaller chunks and <code class="highlighter-rouge">N workers</code> that process those chunks.</p>
+
+<p><img src="/blog/assets/usecase.png" alt="Use case" /></p>
+
+<p>The master should implement the following:</p>
+
+<ul>
+  <li>A way to split the work across workers. Different policies like round-robin or sending to the worker with less requests in flight are possible.</li>
+  <li>A way of registering workers.</li>
+  <li>A way to monitor the workers, notice if they go down and send their pending splits to other workers.</li>
+  <li>A way to timeout if there are no workers registered or the operation takes too long.</li>
+</ul>
+
+<p>Master and workers communicate using the following <code class="highlighter-rouge">protobuf</code> messages over a <code class="highlighter-rouge">zeromq</code> transport:</p>
+
+<ul>
+  <li>FETCH_SPLIT_REQUEST: master -&gt; worker. Asks the worker to fetch a split.</li>
+  <li>FETCH_SPLIT_RESPONSE: worker -&gt; master. The worker communicates the result of the operation to the master.</li>
+  <li>HEARTBEAT_REQUEST: master -&gt; worker. Send to the worker to make sure it is alive.</li>
+  <li>HEARTBEAT_RESPONSE: worker -&gt; master. Send response back to the master.</li>
+  <li>REGISTRATION: worker -&gt; master. Register worker into the master.</li>
+  <li>SHUTDOWN: master -&gt; worker. Used to shut down the worker.</li>
+</ul>
+
+<p>The application works as follows. First the workers register with the master and at that point the master starts sending split requests to them. At a periodic interval the master sends heartbeats to check that the workers are still alive. If a worker doesn’t reply to a heartbeat the master removes the worker and re-sends the outstanding requests to other workers that are alive.
+This continues until all the splits are complete.</p>
+
+<h3 id="master-architecture">Master architecture</h3>
+<p>We divide the master into 2 components: <code class="highlighter-rouge">master</code> and <code class="highlighter-rouge">transport</code>.</p>
+
+<p><img src="/blog/assets/arch.png" alt="Architecture" /></p>
+
+<p><code class="highlighter-rouge">master</code> is in charge of sending <code class="highlighter-rouge">Fetch Split Requests</code>, sending <code class="highlighter-rouge">heartbeats</code> and processing <code class="highlighter-rouge">responses</code> from workers.</p>
+
+<p><code class="highlighter-rouge">transport</code> is in charge of sending and receiving the messages.</p>
+
+<p>To make the design cleaner we run <code class="highlighter-rouge">master</code> and <code class="highlighter-rouge">transport</code> in different threads and communicate them using a thread-safe producer consumer queue. Using different threads makes the application more responsive. E.g. if the master is taking a long time generating requests or processing responses the transport can still send and receive messages. This is the master’s pseudocode:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>splits = splitFile(filename)
+while (splits.size() &gt; 0) {
+  now = get_time();
+  if ((now - lastSplitResponseTime) &gt; timeoutInterval) errorAndExit();
+  if ((now - lastheartbeatSendTime) &gt; heartbeatSendInterval) sendHeartbeat();
+  if ((now - lastHeartbeatCheckTime) &gt; hearbeatCheckInterval) checkHeartbeats();
+  if (requestQueue.hasFreeSlots()) sendSplit();
+  if (responseQueue.hasValidData()) processResponse();
+}
+shutdown(workers);
+</code></pre>
+</div>
+
+<p>Note that the queues are not blocking. This allows us to keep sending requests even if there are no responses and viceversa.</p>
+
+<p>At a certain point in time the queues will look like this:</p>
+
+<p><img src="/blog/assets/queues.png" alt="Queues" /></p>
+
+<p>This is just a very simple design. One possible problem is that the heartbeat requests/responses may be delayed if there are too many Fetch Splits requests/responses in the queue. Another option would be to have a separate queue with higher priority for heartbeats (i.e. <code class="highlighter-rouge">transport</code> would always empty the heartbeat queue first).
+Another option is to have a whole separate <code class="highlighter-rouge">zeromq</code> socket for heartbeats.</p>
+
+<h3 id="transport-architecture">Transport architecture</h3>
+
+<p>The transport layer is responsible for sending and receiving messages. As in the master case is not blocking:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>while (1) {
+  hasResponses = poll_for_responses();
+  if (hasResponses) responseQueue.add(response);
+  if (requestqueue.hasValiData()) sendToWorker(data);
+}
+</code></pre>
+</div>
+
+<h3 id="worker-architecture">Worker architecture</h3>
+<p>The worker is very simple. It receives requests, does the work and sends a response in a closed loop.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>while (1) {
+  req = block_for_request();
+  if(req == shutdown) break;
+  rsp = doWork(rep);
+  sendToMaster(rsp);
+}
+</code></pre>
+</div>
+
+<p>The complete code is on <a href="https://github.com/jorgemarsal/distributor">Github</a> in case you want to take a closer look ;).</p>
+
+<h3 id="conclusion">Conclusion</h3>
+<p>When you have a big problem scaling out across a cluster of commodity machines can be a good option.</p>
+
+<p>In big clusters machines fail so we need a way to check for failures and react to them.</p>
+
+<p>In this example the master is not fault tolerant. We could implement a fault tolerant system using something like  <a href="https://github.com/logcabin/logcabin">Logcabin</a> or <a href="https://zookeeper.apache.org/">Zookeeper</a>.</p>
+
+  </div>
+
+  <div class="date">
+    Written on May 17, 2015
+  </div>
+
+  
+<div class="comments">
+	<div id="disqus_thread"></div>
+	<script type="text/javascript">
+
+	    var disqus_shortname = 'jorgemarsal';
+
+	    (function() {
+	        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+	        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+	        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+	    })();
+
+	</script>
+	<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+
+</article>
+
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+<a href="mailto:jorge.marsal@gmail.com"><i class="svg-icon email"></i></a>
+
+
+<a href="https://github.com/jorgemarsal"><i class="svg-icon github"></i></a>
+
+<a href="https://www.linkedin.com/in/jorgemarsal"><i class="svg-icon linkedin"></i></a>
+
+
+<a href="https://www.twitter.com/jorgemarsal"><i class="svg-icon twitter"></i></a>
+
+
+
+        </footer>
+      </div>
+    </div>
+
+    
+	<!-- Google Analytics -->
+	<script>
+		(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+		(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+		m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+		})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+		ga('create', 'UA-45855395-1', 'auto');
+		ga('send', 'pageview', {
+		  'page': '/blog/design-of-a-simple-distributed-application/',
+		  'title': 'Design of a simple distributed application'
+		});
+	</script>
+	<!-- End Google Analytics -->
+
+
+  </body>
+</html>
