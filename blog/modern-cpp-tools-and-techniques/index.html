@@ -45,6 +45,19 @@
           </div>
 
           <nav>
+            
+<a href="mailto:jorge.marsal@gmail.com"><i class="svg-icon email"></i></a>
+
+
+<a href="https://github.com/jorgemarsal"><i class="svg-icon github"></i></a>
+
+<a href="https://www.linkedin.com/in/jorgemarsal"><i class="svg-icon linkedin"></i></a>
+
+
+<a href="https://www.twitter.com/jorgemarsal"><i class="svg-icon twitter"></i></a>
+
+
+
             <a href="/blog/">Blog</a>
             <a href="/blog/about">About</a>
           </nav>
@@ -297,7 +310,7 @@ Decorators are useful to add access control, logging, locking, to make a class t
 <span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
     <span class="n">boost</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">variant1</span> <span class="o">=</span> <span class="mi">6</span><span class="p">;</span>
     <span class="k">auto</span> <span class="n">int1</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">variant1</span><span class="p">);</span>  <span class="c1">// ok
-</span>    <span class="n">try</span> <span class="p">{</span>
+</span>    <span class="k">try</span> <span class="p">{</span>
         <span class="k">auto</span> <span class="n">str1</span> <span class="o">=</span>
             <span class="n">boost</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="n">variant1</span><span class="p">);</span> <span class="c1">//fails
 </span>    <span class="p">}</span>
@@ -320,7 +333,7 @@ Decorators are useful to add access control, logging, locking, to make a class t
     <span class="kt">uint64_t</span> <span class="n">int1</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">any_cast</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">any1</span><span class="p">);</span>  <span class="c1">// ok
 </span>
     <span class="n">boost</span><span class="o">::</span><span class="n">any</span> <span class="n">any2</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">0</span><span class="p">));</span>
-    <span class="n">try</span> <span class="p">{</span>
+    <span class="k">try</span> <span class="p">{</span>
         <span class="kt">int</span> <span class="n">int2</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">any_cast</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">any2</span><span class="p">);</span>  <span class="c1">// fails
 </span>    <span class="p">}</span>
     <span class="k">catch</span> <span class="p">(</span><span class="k">const</span> <span class="n">boost</span><span class="o">::</span><span class="n">bad_any_cast</span><span class="o">&amp;</span> <span class="n">e</span><span class="p">)</span> <span class="p">{</span>
