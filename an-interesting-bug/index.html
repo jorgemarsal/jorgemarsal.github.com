@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>An interesting bug – Jorge Martinez – </title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="The other day I hit an interesting bug and I thought it would be fun to share it.
+
+" />
+    <meta property="og:description" content="The other day I hit an interesting bug and I thought it would be fun to share it.
+
+" />
+    
+    <meta name="author" content="Jorge Martinez" />
+
+    
+    <meta property="og:title" content="An interesting bug" />
+    <meta property="twitter:title" content="An interesting bug" />
+    
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+      <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+          <link rel="stylesheet" type="text/css" href="/assets/css/sidebar.css" />
+
+    <link rel="alternate" type="application/rss+xml" title="Jorge Martinez - " href="//feed.xml" />
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+  <div id="wrapper">
+      <div id="sidebar-wrapper">
+        <ul class="sidebar-nav">
+            <li class="sidebar-brand">
+                <a href="/">
+                    Jorge Martinez
+                </a>
+            </li>
+            <li>
+                <a href="/biz">Business</a>
+            </li>
+            <li>
+                <a href="/tech">Technology</a>
+            </li>
+            <li>
+                <a href="/books">Books</a>
+            </li>
+            <li>
+                <a href="/essays">Essays</a>
+            </li>
+        </ul>
+    </div>
+
+      <div class="wrapper-masthead">
+          <div class="container">
+            <header class="masthead clearfix">
+              <a href="/" class="site-avatar"><img src="https://avatars2.githubusercontent.com/u/1408535" /></a>
+
+              <div class="site-info">
+                <h1 class="site-name"><a href="/">Jorge Martinez</a></h1>
+                <p class="site-description"></p>
+              </div>
+
+              <nav>
+                
+<a href="mailto:jorge.marsal@gmail.com"><i class="svg-icon email"></i></a>
+
+
+<a href="https://github.com/jorgemarsal"><i class="svg-icon github"></i></a>
+
+<a href="https://www.linkedin.com/in/jorgemarsal"><i class="svg-icon linkedin"></i></a>
+
+
+<a href="https://www.twitter.com/jorgemarsal"><i class="svg-icon twitter"></i></a>
+
+
+
+                <a href="/about">About</a>
+              </nav>
+            </header>
+          </div>
+        </div>
+
+
+
+        <div id="main" role="main" class="container">
+<a href="#menu-toggle" class="btn btn-default" id="menu-toggle">
+        <span class="glyphicon glyphicon-search"></span>
+        </a>
+
+            <article class="post">
+  <h1>An interesting bug</h1>
+
+  <div class="entry">
+    <p>The other day I hit an interesting bug and I thought it would be fun to share it.</p>
+
+<p>The interesting part is that it only happens with some compiler versions.  E.g. when compiled with GCC 4.8.2 on Ubuntu the software hangs. When compiled with GCC 4.6.4 it doesn’t. Let’s see what’s going on:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>library(distributedR)
+distributedR_start(inst=1, log=3)
+Workers registered - 1/1.
+All 1 workers are registered.
+Master address:port - 127.0.0.1:50002
+&lt;hung&gt;
+</code></pre>
+</div>
+
+<p>The prompt is not coming back. If we run <code class="highlighter-rouge">top</code>, <code class="highlighter-rouge">R-executor-bin</code> is stuck using 100% of a core.</p>
+
+<h2 id="debugging">Debugging</h2>
+
+<p>Let’s see where is stuck. First we need the pid of <code class="highlighter-rouge">R-executor-bin</code> which in this case is <code class="highlighter-rouge">57725</code>:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ gdb bin/R-executor-bin 57725
+...
+0x0000000000443e55 in dataptr (x=0x6509e60) at  /usr/local/lib/R/site-library/Rcpp/include/Rcpp/routines.h:197
+197	inline void* dataptr(SEXP x){
+(gdb) bt
+#0  0x0000000000443e55 in dataptr (x=0x6509e60) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/routines.h:197
+#1  0x000000000043aee0 in r_vector_start&lt;24&gt; (x=0x6509e60) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/internal/r_vector.h:32
+#2  update (v=&lt;synthetic pointer&gt;, this=&lt;synthetic pointer&gt;) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/vector/traits.h:40
+#3  update (this=&lt;synthetic pointer&gt;) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/vector/Vector.h:428
+#4  set__ (x=&lt;optimized out&gt;, this=&lt;synthetic pointer&gt;) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/storage/PreserveStorage.h:22
+#5  Vector (size=@0x7fffb4f70bc0: 38, this=&lt;synthetic pointer&gt;) at /usr/local/lib/R/site-library/Rcpp/include/Rcpp/vector/Vector.h:107
+#6  ReadRawArgs (R=...) at platform/executor/src/executor.cpp:474
+#7  0x0000000000436659 in main (argc=&lt;optimized out&gt;, argv=&lt;optimized out&gt;) at platform/executor/src/executor.cpp:709
+</code></pre>
+</div>
+
+<p>The process is stuck in the <code class="highlighter-rouge">dataptr</code> function. GDB tell me is this one:</p>
+
+<p><code class="highlighter-rouge">Rcpp/routines.h:197</code>:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>197	inline void* dataptr(SEXP x){
+198	    typedef void* (*Fun)(SEXP) ;
+199	    static Fun fun = GET_CALLABLE("dataptr") ;
+200	    return fun(x) ;
+201	}
+</code></pre>
+</div>
+
+<p>The function is calling itself in an infinite loop! This code doesn’t make any sense. The function above is used to call <code class="highlighter-rouge">dataptr</code> at runtime.</p>
+
+<p><code class="highlighter-rouge">GET_CALLABLE</code> is a macro pointing to <code class="highlighter-rouge">R_GetCCallable</code>:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>#define GET_CALLABLE(__FUN__) (Fun) R_GetCCallable( "Rcpp", __FUN__ )
+</code></pre>
+</div>
+
+<p>Let’s see what’s <code class="highlighter-rouge">R_GetCCallable</code>. It’s defined in <code class="highlighter-rouge">Rdynload.h</code> in R:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>/* Experimental interface for exporting and importing functions from
+one package for use from C code in a package.  The registration
+part probably ought to be integrated with the other registrations.
+The naming of these routines may be less than ideal. */
+
+void R_RegisterCCallable(const char *package, const char *name, DL_FUNC fptr);
+DL_FUNC R_GetCCallable(const char *package, const char *name);
+</code></pre>
+</div>
+
+<p>The corresponding registration part is in <code class="highlighter-rouge">Rcpp_init.cpp:109</code>:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>RCPP_REGISTER(dataptr)
+#define RCPP_REGISTER(__FUN__) R_RegisterCCallable( "Rcpp", #__FUN__ , (DL_FUNC)__FUN__ );
+</code></pre>
+</div>
+
+<p>But wait. That registration is not pointing to <code class="highlighter-rouge">dataptr</code> in <code class="highlighter-rouge">Rcpp/routines.h:197</code>. It’s pointing to another <code class="highlighter-rouge">dataptr</code> in <code class="highlighter-rouge">Rcpp/src/barrier.cpp:71</code>:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>// [[Rcpp::register]]
+void* dataptr(SEXP x){
+    return DATAPTR(x);
+}
+</code></pre>
+</div>
+
+<p>That’s bad. There are 2 functions with the same name and we’re registering one but getting the other one at runtime! And to add insult to the injury the latter is calling itself in an infinite loop. But there are 2 weird things here:</p>
+
+<ol>
+  <li>This only fails in some compiler versions!</li>
+  <li>The process is hung but is should segfault. If we keep recursing indefinitely at some time we’ll run out of stack space and the process will be killed.</li>
+</ol>
+
+<p>Let’s try to find out the reason for #1. Let’s compile with both GCC 4.6.4 and GCC 4.8.2 and see the differences in the symbol tables:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ nm --dynamic R-executor-bin-4.8 |grep dataptr
+0000000000443e50 W _Z7dataptrP7SEXPREC
+00000000006c6060 u _ZGVZ7dataptrP7SEXPRECE3fun
+00000000006c5fe8 u _ZZ7dataptrP7SEXPRECE3fun
+
+$ nm --dynamic  R-executor-bin-4.6 |grep dataptr
+00000000006cafa0 u _ZGVZ7dataptrP7SEXPRECE3fun
+00000000006cafa8 u _ZZ7dataptrP7SEXPRECE3fun
+</code></pre>
+</div>
+
+<p>Aha! GCC 4.8 has removed one of the <code class="highlighter-rouge">dataptr</code> definitions (the wrong one) so we’re getting what we expect at runtime. Unfortunately GCC 4.6 has not.</p>
+
+<h2 id="reproducing-the-hang-with-a-small-program">Reproducing the hang with a small program</h2>
+
+<p>Let’s try to reproduce it with a small example:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>#include &lt;Rcpp.h&gt;
+#include &lt;RInside.h&gt;
+#include &lt;iostream&gt;
+
+int main() {
+    RInside R(0, 0);
+    int size = 38;
+    Rcpp::RawVector raw(size);
+    std::cout &lt;&lt; "done" &lt;&lt; std::endl;
+    return 0;
+}
+
+$ g++-4.6 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O0 -g  -o rcpphang-4.6 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+$ g++-4.8 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O0 -g  -o rcpphang-4.8 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+</code></pre>
+</div>
+
+<p>Let’s run it:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ ./rcpphang-4.8
+done
+$ ./rcpphang-4.6
+done
+</code></pre>
+</div>
+
+<p>Wait, what? This is working! No hang. Let’s take a look at the symbol tables:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ nm --dynamic rcpphang-4.6 |grep dataptr
+&lt;no output&gt;
+
+$ nm --dynamic rcpphang-4.8 |grep dataptr
+&lt;no output&gt;
+</code></pre>
+</div>
+
+<p>Ok, that’s why it’s working. <code class="highlighter-rouge">dataptr</code> is not in the dynamic symbol tables. Looking at the original SW (that hung) I see we compile with <code class="highlighter-rouge">-rdynamic</code>:</p>
+
+<p><strong>-rdynamic</strong>: Pass the flag -export-dynamic to the ELF linker, on targets that support it. This instructs the linker to add all symbols, not only used ones, to the dynamic symbol table. This option is needed for some uses of dlopen or to allow obtaining backtraces from within a program.</p>
+
+<p>Let’s compile with <code class="highlighter-rouge">-rdynamic</code>:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ g++-4.6 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O0 -g -rdynamic -o rcpphang-4.6 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+$ g++-4.8 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O0 -g  -o rcpphang-4.8 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+</code></pre>
+</div>
+
+<p>The symbols are there now:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ nm --dynamic rcpphang-4.6-rdyn-noopt|grep dataptr
+00000000004039f8 W _Z7dataptrP7SEXPREC
+0000000000606668 u _ZGVZ7dataptrP7SEXPRECE3fun
+0000000000606670 u _ZZ7dataptrP7SEXPRECE3fun
+
+$ nm --dynamic rcpphang-4.8-rdyn-noopt|grep dataptr
+0000000000403a08 W _Z7dataptrP7SEXPREC
+0000000000606648 u _ZGVZ7dataptrP7SEXPRECE3fun
+0000000000606650 u _ZZ7dataptrP7SEXPRECE3fun
+
+$ ./rcpphang-4.8
+&lt;segfault&gt;
+
+$ ./rcpphang-4.6
+&lt;segfault&gt;
+</code></pre>
+</div>
+
+<p>Ok, now both have the symbol and therefore both segfault! The other difference is that we’re compiling the original SW with <code class="highlighter-rouge">-O2</code>:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ g++-4.6 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O2 -g -rdynamic -o rcpphang-4.6 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+$ g++-4.8 -I/usr/local/lib/R/site-library/RInside/include/ -I/usr/local/lib/R/site-library/Rcpp/include/ -I/usr/share/R/include/ -O2 -g  -o rcpphang-4.8 rcpphang.cpp -lR -lRInside -L/usr/local/lib/R/site-library/RInside/lib/
+
+
+$ nm --dynamic rcpphang-4.8|grep dataptr
+00000000006046a8 u _ZGVZ7dataptrP7SEXPRECE3fun
+00000000006046a0 u _ZZ7dataptrP7SEXPRECE3fun
+$ nm --dynamic rcpphang-4.6|grep dataptr
+0000000000402b50 W _Z7dataptrP7SEXPREC
+00000000006046b8 u _ZGVZ7dataptrP7SEXPRECE3fun
+00000000006046c0 u _ZZ7dataptrP7SEXPRECE3fun
+</code></pre>
+</div>
+
+<p>Now we have the same behavior as with the original SW! GCC 4.8 has removed the symbol while 4.6 hasn’t. That’s why 4.8 works and 4.6 hangs:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ ./rcpphang-4.8
+done
+
+$ ./rcpphang-4.6
+&lt;hung&gt;
+</code></pre>
+</div>
+
+<p>Now regarding weirdness #2, the explanation for the hang instead of the segfault is probably that the compiler is doing <a href="http://c2.com/cgi/wiki?TailCallOptimization">tail call optimization</a>.</p>
+
+<h2 id="fixing-the-problem">Fixing the problem</h2>
+
+<p>One way to fix this issue is to make sure the conflicting function is not exported in the shared library. We can achieve that adding the following attribute:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>inline __attribute__ ((visibility ("hidden"))) void* dataptr(SEXP x){
+</code></pre>
+</div>
+
+<p>In the end we reported the bug to the <code class="highlighter-rouge">Rcpp</code> author and he applied the fix in <code class="highlighter-rouge">Rcpp 0.11.5</code>.</p>
+
+<p>That was fun :)</p>
+
+  </div>
+
+  <div class="date">
+    Written on March 16, 2015
+  </div>
+
+  <div class="twitter-plug">
+  <a href="https://twitter.com/jorgemarsal" class="twitter-follow-button" data-show-count="false">Follow @jorgemarsal</a><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+</div>
+
+
+  
+<div class="comments">
+	<div id="disqus_thread"></div>
+	<script type="text/javascript">
+
+	    var disqus_shortname = 'jorgemarsal';
+
+	    (function() {
+	        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+	        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+	        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+	    })();
+
+	</script>
+	<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+
+</article>
+
+        </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+<a href="mailto:jorge.marsal@gmail.com"><i class="svg-icon email"></i></a>
+
+
+<a href="https://github.com/jorgemarsal"><i class="svg-icon github"></i></a>
+
+<a href="https://www.linkedin.com/in/jorgemarsal"><i class="svg-icon linkedin"></i></a>
+
+
+<a href="https://www.twitter.com/jorgemarsal"><i class="svg-icon twitter"></i></a>
+
+
+
+        </footer>
+      </div>
+    </div>
+
+  </div>
+    
+	<!-- Google Analytics -->
+	<script>
+		(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+		(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+		m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+		})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+		ga('create', 'UA-45855395-1', 'auto');
+		ga('send', 'pageview', {
+		  'page': '//an-interesting-bug/',
+		  'title': 'An interesting bug'
+		});
+	</script>
+	<!-- End Google Analytics -->
+
+
+      <script>
+    $("#menu-toggle").click(function(e) {
+        e.preventDefault();
+        $("#wrapper").toggleClass("toggled");
+    });
+
+        </script>
+
+
+  </body>
+</html>

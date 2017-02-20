@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>100000-foot view of a modern web service  – Jorge Martinez – </title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="In this post we’re going to explore how to deliver a modern web service. To make things clearer we’re going to use a OCR service as an example. All the code is available on Github.
+
+" />
+    <meta property="og:description" content="In this post we’re going to explore how to deliver a modern web service. To make things clearer we’re going to use a OCR service as an example. All the code is available on Github.
+
+" />
+    
+    <meta name="author" content="Jorge Martinez" />
+
+    
+    <meta property="og:title" content="100000-foot view of a modern web service " />
+    <meta property="twitter:title" content="100000-foot view of a modern web service " />
+    
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+      <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+          <link rel="stylesheet" type="text/css" href="/assets/css/sidebar.css" />
+
+    <link rel="alternate" type="application/rss+xml" title="Jorge Martinez - " href="//feed.xml" />
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+  <div id="wrapper">
+      <div id="sidebar-wrapper">
+        <ul class="sidebar-nav">
+            <li class="sidebar-brand">
+                <a href="/">
+                    Jorge Martinez
+                </a>
+            </li>
+            <li>
+                <a href="/biz">Business</a>
+            </li>
+            <li>
+                <a href="/tech">Technology</a>
+            </li>
+            <li>
+                <a href="/books">Books</a>
+            </li>
+            <li>
+                <a href="/essays">Essays</a>
+            </li>
+        </ul>
+    </div>
+
+      <div class="wrapper-masthead">
+          <div class="container">
+            <header class="masthead clearfix">
+              <a href="/" class="site-avatar"><img src="https://avatars2.githubusercontent.com/u/1408535" /></a>
+
+              <div class="site-info">
+                <h1 class="site-name"><a href="/">Jorge Martinez</a></h1>
+                <p class="site-description"></p>
+              </div>
+
+              <nav>
+                
+<a href="mailto:jorge.marsal@gmail.com"><i class="svg-icon email"></i></a>
+
+
+<a href="https://github.com/jorgemarsal"><i class="svg-icon github"></i></a>
+
+<a href="https://www.linkedin.com/in/jorgemarsal"><i class="svg-icon linkedin"></i></a>
+
+
+<a href="https://www.twitter.com/jorgemarsal"><i class="svg-icon twitter"></i></a>
+
+
+
+                <a href="/about">About</a>
+              </nav>
+            </header>
+          </div>
+        </div>
+
+
+
+        <div id="main" role="main" class="container">
+<a href="#menu-toggle" class="btn btn-default" id="menu-toggle">
+        <span class="glyphicon glyphicon-search"></span>
+        </a>
+
+            <article class="post">
+  <h1>100000-foot view of a modern web service </h1>
+
+  <div class="entry">
+    <p>In this post we’re going to explore how to deliver a modern web service. To make things clearer we’re going to use a OCR service as an example. All the code is available on <a href="https://github.com/jorgemarsal/webocr/tree/master/webocr">Github</a>.</p>
+
+<p><code class="highlighter-rouge">WebOCR</code> extracts text from user uploaded images using a technique known as <a href="https://en.wikipedia.org/wiki/Optical_character_recognition">OCR</a>. Users provide the image information (for now just the URL) and the service downloads the image, extracts the text and sends the result back to the user.</p>
+
+<h3 id="architecture">Architecture</h3>
+<p>The architecture is shown in this picture below:</p>
+
+<p><img src="/assets/webocr/arch.png" alt="Architecture" /></p>
+
+<p>There are 2 main elements:</p>
+
+<ul>
+  <li>The WebOCR service provides a restful API for extracting text from images.</li>
+  <li>The task server and associated workers perform the actual OCR processing.</li>
+</ul>
+
+<p>The basic workflow is:</p>
+
+<ol>
+  <li>Users post a request with the image information.
+    <ul>
+      <li>The WebOCR service sends the task to the task server and …</li>
+      <li>… replies with a 202 Accepted code and a link to check the task progress.</li>
+      <li>The task server sends the task to a queue (RabbitMQ in this case).</li>
+      <li>The worker picks up the task from the queue.</li>
+      <li>The server polls the task server periodically to update the task status and stores that information.</li>
+      <li>The client can also access this information through the <code class="highlighter-rouge">/queue</code> endpoint in the WebOCR service.</li>
+      <li>Eventually the task will succeed or fail. If the task succeeds the client will get redirected to the result. If it fails the client can retrieve the failure cause from the /queue endpoint.</li>
+      <li>Both the client and the web server have timeouts and consider the task failed if they don’t receive a response in a timely manner.</li>
+    </ul>
+  </li>
+</ol>
+
+<p>This is an example exchange:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>curl -v -H "Content-Type: application/json" -X POST \
+-d '{"url":"http://localhost:1234/static/ocr/sample1.jpg"}' \
+http://localhost:1234/api/v1/services
+...
+HTTP/1.1 202 Accepted
+Content-Location: /queue/7bc6c484-df47-4cb6-b254-17b770b52060
+….
+</code></pre>
+</div>
+
+<p>The server replies with a 202 code and a URL to query the task status. If we access that URL and the task is still pending we’ll get a 200 ok and info about the task. When the task is done we’ll get a 303 and a link to the newly created resource:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>curl -v http://localhost:1234/queue/abb5fbbf-9519-4d21-af23-e3a7da1ca480
+
+….
+HTTP/1.1 303 See Other
+Location: /api/v1/service/90
+…
+</code></pre>
+</div>
+
+<p>Let’s get the result:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ curl -v http://localhost:1234/api/v1/service/90
+HTTP/1.1 200 OK
+{
+    "result": "THINGS YOU SHOULD KNOW ABOU ...
+              ... neiraviers common In\n\n",
+    "state": "SUCCESS",
+    "url": "http://localhost:1234/static/ocr/sample1.jpg"
+}
+</code></pre>
+</div>
+
+<p>We also have a websocket channel to send real time information of the task progress to the frontend.</p>
+
+<p>The next sections go into more detail on how all of this is implemented.</p>
+
+<h3 id="backend">Backend</h3>
+<p>The backend is a Tornado app that implements the restful API. There aren’t any blocking operations. We either use event-loop aware functionality (like Tornado’s <code class="highlighter-rouge">AsyncHTTPClient</code> or run the task in a different thread with the <code class="highlighter-rouge">@run_on_executor</code> decorator. By using this design the server can handle many concurrent user connections.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@run_on_executor
+def _on_executor(self, fn, *args, **kwargs):
+    """Execute the given function on another thread"""
+    return fn(*args, **kwargs)
+
+@gen.coroutine
+def f():
+    http_client = AsyncHTTPClient()
+    response = yield http_client.fetch("http://example.com")
+</code></pre>
+</div>
+
+<h4 id="database">Database</h4>
+
+<p>Choosing the right database is probably one of the most important decision in a web project. In this case, since the performance requirements are modest, we don’t need a database cluster and we can live with a single node and snapshot backups. In this situation we can pretty much do whatever we want and we’ve chosen MySQL. When the performance requirements are higher then we need to consider other solutions and keep in mind the associated performance and consistency tradeoffs.</p>
+
+<p>As mentioned earlier the backend stores the state in a MySQL database but instead of having a fixed schema we have a <code class="highlighter-rouge">schemaless</code> design. The original idea comes from <a href="https://backchannel.org//friendfeed-schemaless-mysql">Friendfeed’s schemaless design</a> and the implementation (with minor modifications) comes from <a href="https://github.com/eklitzke/schemaless">Evan Klitzke</a>.</p>
+
+<p>In this design we store compressed pickled python dictionaries that can hold arbitrary data, making schema evolution simple. Note that this idea is from 2009 when NoSQL offerings weren’t as mature as today. Probably nowadays we’d be better off using something like Mongo. Storing and querying the database is done like this:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>row = self.db.put(dict(url=service['url'], state='PENDING'))
+rows = url_index.query(c.url == url)
+</code></pre>
+</div>
+
+<h4 id="task-server">Task server</h4>
+<p>We’ve decided to offload the actual computations to a task server. This way we can keep a simple WebOCR service and scale the task server independently if the load increases.</p>
+
+<p>The task server exposes another REST API to send tasks to Celery. Celery is an asynchronous task queue/job queue based on distributed message passing. The workflow is quite simple. The WebOCR service posts tasks to the task server. The task server sends those tasks to a queue (RabbitMQ in this case) and on the other end, one or more task workers pick up the tasks.</p>
+
+<h4 id="advice-for-developing-backend-code">Advice for developing backend code</h4>
+
+<p>Giving a complete overview of all the things to keep in mind when developing backend SW is out of scope for this post. However we’ll just give a few pieces of advice.</p>
+
+<p>We decided to develop the service in Python because it’s a language we’re pretty familiar with. Developing in python is really fast due to its dynamic nature and it comes with libraries for almost everything. Node.js could have been a good option as well. If type safety or performance are important considerations then Go would have been a better alternative.</p>
+
+<p>A lot of advice about Python itself can be found in the fantastic book <a href="http://www.effectivepython.com/">Effective Python</a>.</p>
+
+<p>One of the most important things to do when developing software is having good testing. One rule that I find particularly useful to increase confidence is having a high test coverage. Keep in mind that high coverage is not enough though. It’s important to design a very comprehensive test plan. Otherwise you can have 100% coverage but ignore a lot of real-world cases. A tool that works well is <code class="highlighter-rouge">pytest-cov</code>. You can get coverage numbers using this command:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>py.test --cov=webocr --cov-report=html
+</code></pre>
+</div>
+
+<p>As an example if we want to test a call to a remote service we should at least test a couple scenarios:</p>
+
+<ul>
+  <li>Service works ok</li>
+  <li>Service not running</li>
+  <li>Service returns HTTP errrors</li>
+  <li>Service returns 200 ok but response data is malformed.</li>
+</ul>
+
+<p>To easily test all those error conditions we can mock the service using somethind like this:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>class App(object):
+    def __init__(self, service):
+        self.service = service
+
+    def do(self):
+        try:
+            self.service.do(something)
+        except ServiceError as e:
+            handle_exception()
+
+def test_normal():
+    “”” Normal service “””
+    app = App(service)
+
+def test_error():
+    “”” Mock service that triggers all the error conditions “””
+    app = App(mock_service)
+</code></pre>
+</div>
+
+<p>Correctness is absolute necessary but you should also take a look at the performance of the service. You can use something like <a href="http://jmeter.apache.org">Jmeter</a> for that.</p>
+
+<p>Finally a linting tool like <code class="highlighter-rouge">flakes8</code> can point common errors and style issues.</p>
+
+<p>I recommend having testing, linting and other tooling as part of the CI process both on the client (via Git hooks) and on the server (with something like Jenkins).</p>
+
+<h3 id="frontend">Frontend</h3>
+
+<p>We’ve created a simple webpage to submit new tasks and to display the status of pending/finished tasks (see pic below). On the left hand side we have a form to submit the image information. In the middle we display the original image and on the right the extracted text. We also have a websocket channel to receive real-time progress updates.</p>
+
+<p><img src="/assets/webocr/frontend.png" alt="Frontend" /></p>
+
+<p>I’m by no means a frontend expert. I just know the minimum HTML, CSS and JS to get by. Having said that, it pays off to organize the code properly. For JS we follow the MVC pattern. The important point to remember is that the model and the view don’t talk directly, they always go through the controller.</p>
+
+<h3 id="infrastructure">Infrastructure</h3>
+
+<p>Developing the software is just half the problem Then you have to reliably run it in production.
+In this section I’m gonna talk about 2 great pieces of software that we use and help greatly: Docker and Kubernetes.</p>
+
+<p>Docker gives you a single environment in which you have total control over dependencies and versions. And the best part is that the environment will be the same (or very similar) in development and production. We recommend dockerizing every service.</p>
+
+<p>The other piece of the puzzle is kubernetes. Kubernetes is an open source orchestration system for Docker containers that provides fault tolerance and high availability.
+One of the main abstraction in Kubernetes is the Replication Controller. You can specify how many pods (collection of containers) you want to have running and kubernetes will enforce that. Kubernetes performs health checks and automatically restarts the pods if there are errors. Another interesting feature is the ability to increase the number of pods based on load. That way you can scale your service up or down based on load. In this example we can increase the number of task workers if the load is high and reduce it to save costs if the load decreases.</p>
+
+<p>The other important abstraction is the service. Services provide discoverability and have neat features like automatic load balancing of the traffic between pods. Kubernetes also comes with solutions for logging and monitoring.</p>
+
+<h3 id="conclusion">Conclusion</h3>
+
+<p>With this we conclude this blog post. We hope the ideas presented here will help you with your own designs. The complete code is up on <a href="https://github.com/jorgemarsal/webocr/tree/master/webocr">Github</a>.</p>
+
+  </div>
+
+  <div class="date">
+    Written on January  6, 2016
+  </div>
+
+  <div class="twitter-plug">
+  <a href="https://twitter.com/jorgemarsal" class="twitter-follow-button" data-show-count="false">Follow @jorgemarsal</a><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+</div>
+
+
+  
+<div class="comments">
+	<div id="disqus_thread"></div>
+	<script type="text/javascript">
+
+	    var disqus_shortname = 'jorgemarsal';
+
+	    (function() {
+	        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+	        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+	        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+	    })();
+
+	</script>
+	<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+
+</article>
+
+        </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+<a href="mailto:jorge.marsal@gmail.com"><i class="svg-icon email"></i></a>
+
+
+<a href="https://github.com/jorgemarsal"><i class="svg-icon github"></i></a>
+
+<a href="https://www.linkedin.com/in/jorgemarsal"><i class="svg-icon linkedin"></i></a>
+
+
+<a href="https://www.twitter.com/jorgemarsal"><i class="svg-icon twitter"></i></a>
+
+
+
+        </footer>
+      </div>
+    </div>
+
+  </div>
+    
+	<!-- Google Analytics -->
+	<script>
+		(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+		(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+		m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+		})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+		ga('create', 'UA-45855395-1', 'auto');
+		ga('send', 'pageview', {
+		  'page': '//100000-foot-view-of-a-modern-web-service/',
+		  'title': '100000-foot view of a modern web service '
+		});
+	</script>
+	<!-- End Google Analytics -->
+
+
+      <script>
+    $("#menu-toggle").click(function(e) {
+        e.preventDefault();
+        $("#wrapper").toggleClass("toggled");
+    });
+
+        </script>
+
+
+  </body>
+</html>

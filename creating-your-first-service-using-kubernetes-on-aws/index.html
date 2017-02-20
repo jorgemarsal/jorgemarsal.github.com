@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Creating your first service using Kubernetes on AWS – Jorge Martinez – </title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="Lately we’ve playing with Kubernetes (or K8s) at work. Kubernetes is an open source orchestration system for Docker containers. It comes with awesome features like fault tolerance, auto-scaling and others.
+
+" />
+    <meta property="og:description" content="Lately we’ve playing with Kubernetes (or K8s) at work. Kubernetes is an open source orchestration system for Docker containers. It comes with awesome features like fault tolerance, auto-scaling and others.
+
+" />
+    
+    <meta name="author" content="Jorge Martinez" />
+
+    
+    <meta property="og:title" content="Creating your first service using Kubernetes on AWS" />
+    <meta property="twitter:title" content="Creating your first service using Kubernetes on AWS" />
+    
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+      <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+          <link rel="stylesheet" type="text/css" href="/assets/css/sidebar.css" />
+
+    <link rel="alternate" type="application/rss+xml" title="Jorge Martinez - " href="//feed.xml" />
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+  <div id="wrapper">
+      <div id="sidebar-wrapper">
+        <ul class="sidebar-nav">
+            <li class="sidebar-brand">
+                <a href="/">
+                    Jorge Martinez
+                </a>
+            </li>
+            <li>
+                <a href="/biz">Business</a>
+            </li>
+            <li>
+                <a href="/tech">Technology</a>
+            </li>
+            <li>
+                <a href="/books">Books</a>
+            </li>
+            <li>
+                <a href="/essays">Essays</a>
+            </li>
+        </ul>
+    </div>
+
+      <div class="wrapper-masthead">
+          <div class="container">
+            <header class="masthead clearfix">
+              <a href="/" class="site-avatar"><img src="https://avatars2.githubusercontent.com/u/1408535" /></a>
+
+              <div class="site-info">
+                <h1 class="site-name"><a href="/">Jorge Martinez</a></h1>
+                <p class="site-description"></p>
+              </div>
+
+              <nav>
+                
+<a href="mailto:jorge.marsal@gmail.com"><i class="svg-icon email"></i></a>
+
+
+<a href="https://github.com/jorgemarsal"><i class="svg-icon github"></i></a>
+
+<a href="https://www.linkedin.com/in/jorgemarsal"><i class="svg-icon linkedin"></i></a>
+
+
+<a href="https://www.twitter.com/jorgemarsal"><i class="svg-icon twitter"></i></a>
+
+
+
+                <a href="/about">About</a>
+              </nav>
+            </header>
+          </div>
+        </div>
+
+
+
+        <div id="main" role="main" class="container">
+<a href="#menu-toggle" class="btn btn-default" id="menu-toggle">
+        <span class="glyphicon glyphicon-search"></span>
+        </a>
+
+            <article class="post">
+  <h1>Creating your first service using Kubernetes on AWS</h1>
+
+  <div class="entry">
+    <p>Lately we’ve playing with Kubernetes (or K8s) at work. Kubernetes is an open source orchestration system for Docker containers. It comes with awesome features like fault tolerance, auto-scaling and others.</p>
+
+<p>In this post we give an overview on how to install Kubernetes on AWS and how to run your first service.</p>
+
+<h3 id="installing-kubernetes-on-aws">Installing Kubernetes on AWS</h3>
+
+<p>The first step is to create a new instance. Once the instance has booted up, log in and enter your AWS credentials (the K8s installer needs the credentials to create objects in AWS):</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ mkdir -p ~/.aws/
+$ vi ~/.aws/credentials
+</code></pre>
+</div>
+
+<p>Let’s install Kubernetes next. There are a few of <a href="https://github.com/kubernetes/kubernetes/blob/master/cluster/aws/options.md">options</a> that can be tweaked:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ export KUBERNETES_PROVIDER=aws
+$ export MASTER_SIZE=t2.large
+$ export NODE_SIZE=t2.large
+$ wget -q -O - https://get.K8s.io | bash
+</code></pre>
+</div>
+
+<p>After this command finishes K8s is up and running! By default the scripts creates a cluster with 1 master node and 4 minion nodes. It also creates 2 security groups that allow SSH access to master and minions and HTTP access to the master.</p>
+
+<p>K8s provides a REST API to interface with the cluster. The information to access that API including the URL, username, password and tokens can be found in the config file:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ cat /home/ec2-user/.kube/config
+</code></pre>
+</div>
+
+<p>In our case the API lives in the following URL:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ curl https://52.35.142.134
+
+{
+ "paths": [
+   "/api",
+   "/api/v1",
+   ...
+   "/ui/",
+   "/version"
+ ]
+}
+</code></pre>
+</div>
+
+<p>Instead of using the REST API directly we’re going to use a CLI tool called <code class="highlighter-rouge">kubelet</code>. Let’s add the paths and export a few environment variables in ~/.bashrc:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ export PATH=$PATH:/home/ec2-user/kubernetes/cluster/:$HOME/kubernetes/platforms/linux/amd64/
+$ export KUBERNETES_PROVIDER=aws
+$ source ~/.bashrc
+</code></pre>
+</div>
+
+<p>K8s runs a few services by default including DNS, logging, monitoring and others:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ kubectl cluster-info
+Kubernetes master is running at https://52.35.87.147
+Elasticsearch is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/elasticsearch-logging
+Heapster is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/heapster
+Kibana is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/kibana-logging
+KubeDNS is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/kube-dns
+KubeUI is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/kube-ui
+Grafana is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/monitoring-grafana
+InfluxDB is running at https://52.35.87.147/api/v1/proxy/namespaces/kube-system/services/monitoring-influxdb
+</code></pre>
+</div>
+
+<h4 id="logging">Logging</h4>
+<p>Kubernetes’ default option for logging is to run a <code class="highlighter-rouge">fluentd</code> agent on each node. These agents send the logs to <code class="highlighter-rouge">ElasticSearch</code> where they’re stored and indexed. To explore the logs there’s a GUI named <code class="highlighter-rouge">Kibana</code>:</p>
+
+<p><img src="/assets/k8s-aws/kibana.jpg" alt="Logging" /></p>
+
+<h4 id="monitoring">Monitoring</h4>
+<p>There’s an analogous solution for monitoring as well. Each node runs a <code class="highlighter-rouge">heapster</code> agent that collects metrics. The metrics are sent to <code class="highlighter-rouge">influxdb</code> (a time series database) where they can be queried using a REST API or a GUI named <code class="highlighter-rouge">Grafana</code>:</p>
+
+<p><img src="/assets/k8s-aws/grafana.jpg" alt="Monitoring" /></p>
+
+<h3 id="kube-ui">Kube-ui</h3>
+<p>Kubernetes comes with a graphical dashboard with information of the nodes that form the cluster.</p>
+
+<p><img src="/assets/k8s-aws/kube-ui.jpg" alt="Kube-UI" /></p>
+
+<p>And of course there’s the possibility to SSH to the nodes directly:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ ssh -i ~/.ssh/kube_aws_rsa ubuntu@52.35.178.251
+</code></pre>
+</div>
+
+<h3 id="running-your-own-service-on-k8s">Running your own service on K8s</h3>
+<p>To run your service on K8s the first step is to create a Docker image out of it.
+In this example we’re going to Dockerize the <code class="highlighter-rouge">hello-node</code> service. This is just a simple web server that outputs “Hello world” when accessed. To create a Docker image we just add a simple Dockerfile to the project:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>FROM node
+ADD index.js
+CMD node index.js
+EXPOSE 8000
+</code></pre>
+</div>
+
+<p>Then let’s make sure Docker is installed and running:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ sudo yum -y install docker git
+$ sudo service docker start
+</code></pre>
+</div>
+
+<p>Let’s get the code:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ git clone http://github.com/jorgemarsal/hello-node
+$ cd hello-node
+</code></pre>
+</div>
+
+<p>To build the image we run <code class="highlighter-rouge">docker build</code>:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ sudo docker build -t jorgemarsal/hello-node:0.0.1 .
+</code></pre>
+</div>
+
+<p>Finally we can push the image to a repository. Later on Kubernetes will fetch the image from there:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ sudo docker push jorgemarsal/hello-node:0.0.1
+</code></pre>
+</div>
+
+<h4 id="kubernetes-spec-files">Kubernetes spec files</h4>
+
+<p>To run the service on K8s we need to create a <code class="highlighter-rouge">Replication Controller</code> spec and a <code class="highlighter-rouge">Service</code> spec. In the replication controller spec we specify the docker image, the number of replicas and the port the application is listening on:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>// rc.json
+{
+   "apiVersion": "v1",
+   "kind": "ReplicationController",
+   "metadata": {
+       "labels": {
+           "app": "hello-node",
+           "version": "v1"
+       },
+       "name": "hello-node-v1",
+       "namespace": ""
+   },
+   "spec": {
+       "replicas": 1,
+       "selector": {
+           "app": "hello-node",
+           "version": "v1"
+       },
+       "template": {
+           "metadata": {
+               "labels": {
+                   "app": "hello-node",
+                   "version": "v1"
+               }
+           },
+           "spec": {
+               "containers": [
+                   {
+                       "image": "jorgemarsal/hello-node:0.0.1",
+                       "name": "hello-node-v1",
+                       "ports": [
+                           {
+                               "containerPort": 8000,
+                               "name": "hello-node"
+                           }
+                       ]
+                   }
+               ]
+           }
+       }
+   }
+}
+</code></pre>
+</div>
+
+<p>Let’s create the Replication Controller:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ kubectl create -f rc.json
+</code></pre>
+</div>
+
+<p>In the service spec we specify the ports and we request a load balancer for our service:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>// service.json
+{
+  "kind":"Service",
+  "apiVersion":"v1",
+  "metadata":{
+     "name":"hello-node",
+     "labels":{
+        "app":"hello-node",
+        "version":"v1"
+     }
+  },
+  "spec":{
+     "ports": [
+         {
+             "name": "hello-node",
+             "port": 8000,
+             "targetPort": 8000
+         }
+     ],
+     "selector":{
+        "app":"hello-node",
+        "version":"v1"
+     },
+     "type": "LoadBalancer"
+  }
+}
+</code></pre>
+</div>
+
+<p>Let’s create the service:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ kubectl create -f svc.json
+</code></pre>
+</div>
+
+<p>After a few seconds the service should be up and running. We can check with:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ kubectl get pods
+$ kubectl get services
+</code></pre>
+</div>
+
+<p>Since we specified <code class="highlighter-rouge">type: loadbalancer</code>, AWS automatically creates a ELB for us.</p>
+
+<p>We can access the service using the ELB URL. In a real-world example probably we’d want a friendlier DNS name:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ curl http://a9abab161a37511e5810906731b2c52d-1058840568.us-west-2.elb.amazonaws.com:8000/
+hello world
+</code></pre>
+</div>
+
+<p>Even though the <code class="highlighter-rouge">hello-node</code> service is extremely simple, we get a few nice things for free. Kubernetes is constantly polling the service and if something goes wrong the service is automatically restarted on another node. We also have the possibility to scale the number of hello-node containers up or down easily. Finally we get logging and monitoring.</p>
+
+<h3 id="acessing-the-k8s-api-programmatically">Acessing the K8s API programmatically</h3>
+<p>Doing things manually is fine to start getting familiar with the system, but for more serious projects you should access the K8s API programmatically. At work we mainly use Python and we’ve found a simple library named <a href="https://github.com/eldarion-gondor/pykube">pykube</a> that’s pretty useful.</p>
+
+<p>Pykube needs a few parameters to function. As mentioned previously we can get those parameters from Kubernetes’ configuration file.
+It’s also possible to access the API from within a running container by using the following parameters:</p>
+
+<ul>
+  <li>URL: https://kubernetes</li>
+  <li>user = nobody</li>
+  <li>token present on file <code class="highlighter-rouge">/var/run/secrets/kubernetes.io/serviceaccount/token</code></li>
+  <li>CA present on file: <code class="highlighter-rouge">/var/run/secrets/kubernetes.io/serviceaccount/ca.crt</code></li>
+</ul>
+
+<p>In this <a href="https://gist.github.com/jorgemarsal/600c49a12d79429c7da1">gist</a> you can find some functions to help you get started.</p>
+
+<h3 id="other-resources">Other resources</h3>
+<ul>
+  <li><a href="http://kubernetes.io">Kubernetes official website</a></li>
+  <li><a href="http://docker.com">Docker official website</a></li>
+</ul>
+
+<p>Hope this helps you get started with your next kubernetes project on AWS!</p>
+
+  </div>
+
+  <div class="date">
+    Written on December 15, 2015
+  </div>
+
+  <div class="twitter-plug">
+  <a href="https://twitter.com/jorgemarsal" class="twitter-follow-button" data-show-count="false">Follow @jorgemarsal</a><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+</div>
+
+
+  
+<div class="comments">
+	<div id="disqus_thread"></div>
+	<script type="text/javascript">
+
+	    var disqus_shortname = 'jorgemarsal';
+
+	    (function() {
+	        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+	        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+	        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+	    })();
+
+	</script>
+	<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+
+</article>
+
+        </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+<a href="mailto:jorge.marsal@gmail.com"><i class="svg-icon email"></i></a>
+
+
+<a href="https://github.com/jorgemarsal"><i class="svg-icon github"></i></a>
+
+<a href="https://www.linkedin.com/in/jorgemarsal"><i class="svg-icon linkedin"></i></a>
+
+
+<a href="https://www.twitter.com/jorgemarsal"><i class="svg-icon twitter"></i></a>
+
+
+
+        </footer>
+      </div>
+    </div>
+
+  </div>
+    
+	<!-- Google Analytics -->
+	<script>
+		(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+		(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+		m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+		})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+		ga('create', 'UA-45855395-1', 'auto');
+		ga('send', 'pageview', {
+		  'page': '//creating-your-first-service-using-kubernetes-on-aws/',
+		  'title': 'Creating your first service using Kubernetes on AWS'
+		});
+	</script>
+	<!-- End Google Analytics -->
+
+
+      <script>
+    $("#menu-toggle").click(function(e) {
+        e.preventDefault();
+        $("#wrapper").toggleClass("toggled");
+    });
+
+        </script>
+
+
+  </body>
+</html>
