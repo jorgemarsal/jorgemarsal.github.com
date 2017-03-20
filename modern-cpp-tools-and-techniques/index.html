@@ -36,10 +36,10 @@
           </div>
           <div class="collapse navbar-collapse" id="myNavbar">
             <ul class="nav navbar-nav">
-              <li><a href="/tech">Tech</a></li>
-              <li><a href="/biz">Biz</a></li>
-              <li><a href="/books">Books</a></li>
-              <li><a href="/essays">Essays</a></li>
+              <li><a href="/tech/">Tech</a></li>
+              <li><a href="/biz/">Biz</a></li>
+              <li><a href="/books/">Books</a></li>
+              <li><a href="/essays/">Essays</a></li>
               <li><a href="https://github.com/jorgemarsal"><i class="fa fa-lg fa-github-square"></i><span class="icon-label">GitHub</span></a></li>
               <li><a href="https://twitter.com/jorgemarsal"><i class="fa fa-lg fa-twitter-square"></i><span class="icon-label">Twitter</span></a></li>
               <li><a href="https://linkedin.com/in/jorgemarsal"><i class="fa fa-lg fa-linkedin-square"></i><span class="icon-label">LinkedIn</span></a></li>
@@ -291,7 +291,7 @@ Decorators are useful to add access control, logging, locking, to make a class t
 <span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
     <span class="n">boost</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">variant1</span> <span class="o">=</span> <span class="mi">6</span><span class="p">;</span>
     <span class="k">auto</span> <span class="n">int1</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">variant1</span><span class="p">);</span>  <span class="c1">// ok
-</span>    <span class="n">try</span> <span class="p">{</span>
+</span>    <span class="k">try</span> <span class="p">{</span>
         <span class="k">auto</span> <span class="n">str1</span> <span class="o">=</span>
             <span class="n">boost</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="n">variant1</span><span class="p">);</span> <span class="c1">//fails
 </span>    <span class="p">}</span>
@@ -314,7 +314,7 @@ Decorators are useful to add access control, logging, locking, to make a class t
     <span class="kt">uint64_t</span> <span class="n">int1</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">any_cast</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">any1</span><span class="p">);</span>  <span class="c1">// ok
 </span>
     <span class="n">boost</span><span class="o">::</span><span class="n">any</span> <span class="n">any2</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">0</span><span class="p">));</span>
-    <span class="n">try</span> <span class="p">{</span>
+    <span class="k">try</span> <span class="p">{</span>
         <span class="kt">int</span> <span class="n">int2</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">any_cast</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">any2</span><span class="p">);</span>  <span class="c1">// fails
 </span>    <span class="p">}</span>
     <span class="k">catch</span> <span class="p">(</span><span class="k">const</span> <span class="n">boost</span><span class="o">::</span><span class="n">bad_any_cast</span><span class="o">&amp;</span> <span class="n">e</span><span class="p">)</span> <span class="p">{</span>
